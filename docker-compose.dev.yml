@@ -1,0 +1,143 @@
+version: '3.8'
+
+services:
+  # NestJS Application (Development)
+  aqi-api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: aqi-api-dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - MONGODB_URI=mongodb://mongodb:27017/aqi_monitoring
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - BULL_REDIS_HOST=redis
+      - BULL_REDIS_PORT=6379
+      - IQAIR_API_KEY=${IQAIR_API_KEY}
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-admin-api-key}
+      - CACHE_TTL=3600
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aqi-network
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./logs:/app/logs
+    command: npm run start:dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/analytics/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # MongoDB Database (Development)
+  mongodb-dev:
+    image: mongo:6.0
+    container_name: aqi-mongodb-dev
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password123
+      - MONGO_INITDB_DATABASE=aqi_monitoring
+    volumes:
+      - mongodb_dev_data:/data/db
+      - ./docker/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - aqi-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Redis Cache (Development)
+  redis-dev:
+    image: redis:7-alpine
+    container_name: aqi-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass redis123
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - aqi-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # MongoDB Express (Development)
+  mongo-express-dev:
+    image: mongo-express:1.0.0
+    container_name: aqi-mongo-express-dev
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=admin
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=password123
+      - ME_CONFIG_MONGODB_URL=mongodb://admin:password123@mongodb-dev:27017/
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=admin123
+    depends_on:
+      mongodb-dev:
+        condition: service_healthy
+    networks:
+      - aqi-network
+
+  # Redis Commander (Development)
+  redis-commander-dev:
+    image: rediscommander/redis-commander:latest
+    container_name: aqi-redis-commander-dev
+    restart: unless-stopped
+    ports:
+      - "8082:8081"
+    environment:
+      - REDIS_HOSTS=local:redis-dev:6379:0:redis123
+    depends_on:
+      redis-dev:
+        condition: service_healthy
+    networks:
+      - aqi-network
+
+  # Bull Board (Queue Management)
+  bull-board:
+    image: felixmosh/bull-board:latest
+    container_name: aqi-bull-board
+    restart: unless-stopped
+    ports:
+      - "8083:3000"
+    environment:
+      - REDIS_URL=redis://:redis123@redis-dev:6379
+    depends_on:
+      redis-dev:
+        condition: service_healthy
+    networks:
+      - aqi-network
+
+volumes:
+  mongodb_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+
+networks:
+  aqi-network:
+    driver: bridge 
