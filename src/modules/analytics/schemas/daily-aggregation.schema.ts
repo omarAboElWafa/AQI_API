@@ -3,86 +3,58 @@ import { Document } from 'mongoose';
 
 export type DailyAggregationDocument = DailyAggregation & Document;
 
-@Schema({ 
-  timestamps: true,
-  collection: 'daily_aggregations'
-})
+@Schema({ timestamps: true })
 export class DailyAggregation {
-  @Prop({ 
-    required: true,
-    unique: true,
-    index: true,
-    match: /^\d{4}-\d{2}-\d{2}$/ // YYYY-MM-DD format validation
-  })
+  @Prop({ required: true })
   date: string;
 
-  @Prop({ 
-    required: true,
-    index: true 
-  })
-  location: string;
+  @Prop({ required: true })
+  city: string;
+
+  @Prop({ required: true })
+  country: string;
+
+  @Prop({ required: true })
+  averageAQI: number;
+
+  @Prop({ required: true })
+  maxAQI: number;
+
+  @Prop({ required: true })
+  minAQI: number;
+
+  @Prop({ required: true })
+  dominantPollutant: string;
 
   @Prop({
-    type: {
-      avg_aqi: { type: Number, required: true, min: 0, max: 500 },
-      peak_aqi: {
-        value: { type: Number, required: true, min: 0, max: 500 },
-        time: { type: String, required: true }
-      },
-      min_aqi: {
-        value: { type: Number, required: true, min: 0, max: 500 },
-        time: { type: String, required: true }
-      },
-      dominant_pollutant: { type: String, required: true },
-      pollution_level_distribution: { type: Object, required: true }
-    },
+    type: String,
+    enum: ['Good', 'Moderate', 'Unhealthy for Sensitive Groups', 'Unhealthy', 'Very Unhealthy', 'Hazardous'],
     required: true,
   })
-  daily_stats: {
-    avg_aqi: number;
-    peak_aqi: {
-      value: number;
-      time: string;
-    };
-    min_aqi: {
-      value: number;
-      time: string;
-    };
-    dominant_pollutant: string;
-    pollution_level_distribution: Record<string, number>;
-  };
+  pollutionLevel: 'Good' | 'Moderate' | 'Unhealthy for Sensitive Groups' | 'Unhealthy' | 'Very Unhealthy' | 'Hazardous';
+
+  @Prop({ required: true })
+  totalRecords: number;
 
   @Prop({
     type: [{
-      hour: { type: Number, required: true, min: 0, max: 23 },
-      avg_aqi: { type: Number, required: true, min: 0, max: 500 }
+      hour: Number,
+      averageAQI: Number,
+      recordCount: Number,
     }],
     required: true,
-    validate: {
-      validator: function(hourly_averages: Array<{ hour: number; avg_aqi: number }>) {
-        return hourly_averages.length === 24;
-      },
-      message: 'Hourly averages must contain exactly 24 entries (0-23 hours)'
-    }
   })
-  hourly_averages: Array<{
+  hourlyAverages: Array<{
     hour: number;
-    avg_aqi: number;
+    averageAQI: number;
+    recordCount: number;
   }>;
 
-  @Prop({ 
+  @Prop({
+    type: [Number],
     required: true,
-    type: Date,
-    default: Date.now 
   })
-  calculated_at: Date;
-
-  @Prop({ 
-    required: true,
-    min: 0,
-    type: Number 
-  })
-  record_count: number;
+  missingDataHours: number[];
 
   @Prop({ default: Date.now })
   createdAt: Date;
@@ -93,30 +65,14 @@ export class DailyAggregation {
 
 export const DailyAggregationSchema = SchemaFactory.createForClass(DailyAggregation);
 
-// Compound indexes for efficient analytics queries
-DailyAggregationSchema.index({ location: 1, date: -1 });
-DailyAggregationSchema.index({ date: -1, location: 1 });
+// Create compound index for efficient queries
+DailyAggregationSchema.index({ city: 1, country: 1, date: -1 });
 
-// Index for date range queries
-DailyAggregationSchema.index({ date: 1 });
+// Create index for date-based queries
+DailyAggregationSchema.index({ date: -1 });
 
-// Index for high AQI days (for alerting)
-DailyAggregationSchema.index({ 
-  'daily_stats.avg_aqi': -1, 
-  date: -1 
-}, { 
-  partialFilterExpression: { 'daily_stats.avg_aqi': { $gte: 100 } } 
-});
+// Create index for pollution level queries
+DailyAggregationSchema.index({ pollutionLevel: 1, date: -1 });
 
-// Text index for location search in analytics
-DailyAggregationSchema.index({ 
-  location: 'text' 
-});
-
-// Ensure unique combination of date and location
-DailyAggregationSchema.index({ 
-  date: 1, 
-  location: 1 
-}, { 
-  unique: true 
-}); 
+// Create TTL index to automatically delete old data (optional)
+// DailyAggregationSchema.index({ date: 1 }, { expireAfterSeconds: 365 * 24 * 60 * 60 }); // 1 year 
