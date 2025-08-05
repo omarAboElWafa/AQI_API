@@ -28,20 +28,35 @@ export class DailyAggregation {
 
   @Prop({
     type: String,
-    enum: ['Good', 'Moderate', 'Unhealthy for Sensitive Groups', 'Unhealthy', 'Very Unhealthy', 'Hazardous'],
+    enum: [
+      'Good',
+      'Moderate',
+      'Unhealthy for Sensitive Groups',
+      'Unhealthy',
+      'Very Unhealthy',
+      'Hazardous',
+    ],
     required: true,
   })
-  pollutionLevel: 'Good' | 'Moderate' | 'Unhealthy for Sensitive Groups' | 'Unhealthy' | 'Very Unhealthy' | 'Hazardous';
+  pollutionLevel:
+    | 'Good'
+    | 'Moderate'
+    | 'Unhealthy for Sensitive Groups'
+    | 'Unhealthy'
+    | 'Very Unhealthy'
+    | 'Hazardous';
 
   @Prop({ required: true })
   totalRecords: number;
 
   @Prop({
-    type: [{
-      hour: Number,
-      averageAQI: Number,
-      recordCount: Number,
-    }],
+    type: [
+      {
+        hour: Number,
+        averageAQI: Number,
+        recordCount: Number,
+      },
+    ],
     required: true,
   })
   hourlyAverages: Array<{
@@ -63,7 +78,8 @@ export class DailyAggregation {
   updatedAt: Date;
 }
 
-export const DailyAggregationSchema = SchemaFactory.createForClass(DailyAggregation);
+export const DailyAggregationSchema =
+  SchemaFactory.createForClass(DailyAggregation);
 
 // Create compound index for efficient queries
 DailyAggregationSchema.index({ city: 1, country: 1, date: -1 });
@@ -75,4 +91,4 @@ DailyAggregationSchema.index({ date: -1 });
 DailyAggregationSchema.index({ pollutionLevel: 1, date: -1 });
 
 // Create TTL index to automatically delete old data (optional)
-// DailyAggregationSchema.index({ date: 1 }, { expireAfterSeconds: 365 * 24 * 60 * 60 }); // 1 year 
+// DailyAggregationSchema.index({ date: 1 }, { expireAfterSeconds: 365 * 24 * 60 * 60 }); // 1 year

@@ -3,14 +3,14 @@ import { Document } from 'mongoose';
 
 export type AirQualityColdDocument = AirQualityCold & Document;
 
-@Schema({ 
+@Schema({
   timestamps: true,
-  collection: 'air_quality_cold'
+  collection: 'air_quality_cold',
 })
 export class AirQualityCold {
-  @Prop({ 
-    required: true, 
-    default: 'paris'
+  @Prop({
+    required: true,
+    default: 'paris',
   })
   location: string;
 
@@ -26,29 +26,36 @@ export class AirQualityCold {
     longitude: number;
   };
 
-  @Prop({ 
-    required: true, 
+  @Prop({
+    required: true,
     index: true,
-    type: Date 
+    type: Date,
   })
   timestamp: Date;
 
-  @Prop({ 
+  @Prop({
     required: true,
     min: 0,
-    max: 500 
+    max: 500,
   })
   aqi: number;
 
-  @Prop({ 
+  @Prop({
     required: true,
-    enum: ['p1', 'p2', 'p3', 'p4', 'p5', 'n2', 's4', 'co', 'o3', 'no2', 'so2']
+    enum: ['p1', 'p2', 'p3', 'p4', 'p5', 'n2', 's4', 'co', 'o3', 'no2', 'so2'],
   })
   main_pollutant: string;
 
-  @Prop({ 
+  @Prop({
     required: true,
-    enum: ['Good', 'Moderate', 'Unhealthy for Sensitive Groups', 'Unhealthy', 'Very Unhealthy', 'Hazardous']
+    enum: [
+      'Good',
+      'Moderate',
+      'Unhealthy for Sensitive Groups',
+      'Unhealthy',
+      'Very Unhealthy',
+      'Hazardous',
+    ],
   })
   pollution_level: string;
 
@@ -89,9 +96,10 @@ export class AirQualityCold {
   updatedAt: Date;
 }
 
-export const AirQualityColdSchema = SchemaFactory.createForClass(AirQualityCold);
+export const AirQualityColdSchema =
+  SchemaFactory.createForClass(AirQualityCold);
 
 // Minimal indexing for cold data (archival)
 AirQualityColdSchema.index({ timestamp: -1 }); // Only essential index
 
-// No TTL - Permanent storage 
+// No TTL - Permanent storage

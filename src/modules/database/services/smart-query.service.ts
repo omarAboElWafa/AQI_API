@@ -2,9 +2,18 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 
-import { AirQualityHot, AirQualityHotDocument } from '../schemas/air-quality-hot.schema';
-import { AirQualityWarm, AirQualityWarmDocument } from '../schemas/air-quality-warm.schema';
-import { AirQualityCold, AirQualityColdDocument } from '../schemas/air-quality-cold.schema';
+import {
+  AirQualityHot,
+  AirQualityHotDocument,
+} from '../schemas/air-quality-hot.schema';
+import {
+  AirQualityWarm,
+  AirQualityWarmDocument,
+} from '../schemas/air-quality-warm.schema';
+import {
+  AirQualityCold,
+  AirQualityColdDocument,
+} from '../schemas/air-quality-cold.schema';
 import { AirQualityQueryDto } from '@/common/dto/air-quality-record.dto';
 
 export interface QueryResult<T = any> {
@@ -23,9 +32,12 @@ export class SmartQueryService {
   private readonly logger = new Logger(SmartQueryService.name);
 
   constructor(
-    @InjectModel(AirQualityHot.name) private hotModel: Model<AirQualityHotDocument>,
-    @InjectModel(AirQualityWarm.name) private warmModel: Model<AirQualityWarmDocument>,
-    @InjectModel(AirQualityCold.name) private coldModel: Model<AirQualityColdDocument>,
+    @InjectModel(AirQualityHot.name)
+    private hotModel: Model<AirQualityHotDocument>,
+    @InjectModel(AirQualityWarm.name)
+    private warmModel: Model<AirQualityWarmDocument>,
+    @InjectModel(AirQualityCold.name)
+    private coldModel: Model<AirQualityColdDocument>
   ) {}
 
   /**
@@ -47,15 +59,15 @@ export class SmartQueryService {
     try {
       // Build base query
       const baseQuery: any = {};
-      
+
       if (queryOptions.location) {
         baseQuery.location = queryOptions.location;
       }
-      
+
       if (queryOptions.minAqi !== undefined) {
         baseQuery.aqi = { $gte: queryOptions.minAqi };
       }
-      
+
       if (queryOptions.maxAqi !== undefined) {
         if (baseQuery.aqi) {
           baseQuery.aqi.$lte = queryOptions.maxAqi;
@@ -63,11 +75,11 @@ export class SmartQueryService {
           baseQuery.aqi = { $lte: queryOptions.maxAqi };
         }
       }
-      
+
       if (queryOptions.pollutant) {
         baseQuery.main_pollutant = queryOptions.pollutant;
       }
-      
+
       if (queryOptions.pollution_level) {
         baseQuery.pollution_level = queryOptions.pollution_level;
       }
@@ -78,8 +90,8 @@ export class SmartQueryService {
           ...baseQuery,
           timestamp: {
             $gte: startDate,
-            $lte: endDate
-          }
+            $lte: endDate,
+          },
         };
 
         const hotData = await this.hotModel
@@ -99,8 +111,8 @@ export class SmartQueryService {
           ...baseQuery,
           timestamp: {
             $gte: startDate < thirtyDaysAgo ? startDate : thirtyDaysAgo,
-            $lte: endDate > thirtyDaysAgo ? endDate : thirtyDaysAgo
-          }
+            $lte: endDate > thirtyDaysAgo ? endDate : thirtyDaysAgo,
+          },
         };
 
         const warmData = await this.warmModel
@@ -111,7 +123,9 @@ export class SmartQueryService {
 
         results.push(...warmData);
         sources.warm = warmData.length;
-        this.logger.debug(`Queried warm collection: ${warmData.length} records`);
+        this.logger.debug(
+          `Queried warm collection: ${warmData.length} records`
+        );
       }
 
       // Query cold collection if date range includes data older than 1 year
@@ -120,8 +134,8 @@ export class SmartQueryService {
           ...baseQuery,
           timestamp: {
             $gte: startDate < oneYearAgo ? startDate : oneYearAgo,
-            $lte: endDate > oneYearAgo ? endDate : oneYearAgo
-          }
+            $lte: endDate > oneYearAgo ? endDate : oneYearAgo,
+          },
         };
 
         const coldData = await this.coldModel
@@ -132,26 +146,32 @@ export class SmartQueryService {
 
         results.push(...coldData);
         sources.cold = coldData.length;
-        this.logger.debug(`Queried cold collection: ${coldData.length} records`);
+        this.logger.debug(
+          `Queried cold collection: ${coldData.length} records`
+        );
       }
 
       // Sort all results by timestamp
-      results.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      results.sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
 
       // Apply limit to final results
       const finalResults = results.slice(0, queryOptions.limit || 1000);
 
       const executionTime = Date.now() - startTime;
 
-      this.logger.log(`Smart query completed in ${executionTime}ms. Sources: ${JSON.stringify(sources)}`);
+      this.logger.log(
+        `Smart query completed in ${executionTime}ms. Sources: ${JSON.stringify(sources)}`
+      );
 
       return {
         data: finalResults,
         sources,
         totalCount: finalResults.length,
-        executionTime
+        executionTime,
       };
-
     } catch (error) {
       this.logger.error('Error during smart query:', error);
       throw error;
@@ -203,41 +223,53 @@ export class SmartQueryService {
     try {
       // Query all collections with geospatial search
       const [hotData, warmData, coldData] = await Promise.all([
-        this.hotModel.find({
-          coordinates: {
-            $near: {
-              $geometry: {
-                type: 'Point',
-                coordinates: [longitude, latitude],
+        this.hotModel
+          .find({
+            coordinates: {
+              $near: {
+                $geometry: {
+                  type: 'Point',
+                  coordinates: [longitude, latitude],
+                },
+                $maxDistance: maxDistance,
               },
-              $maxDistance: maxDistance,
             },
-          },
-        }).sort({ timestamp: -1 }).limit(limit).lean(),
+          })
+          .sort({ timestamp: -1 })
+          .limit(limit)
+          .lean(),
 
-        this.warmModel.find({
-          coordinates: {
-            $near: {
-              $geometry: {
-                type: 'Point',
-                coordinates: [longitude, latitude],
+        this.warmModel
+          .find({
+            coordinates: {
+              $near: {
+                $geometry: {
+                  type: 'Point',
+                  coordinates: [longitude, latitude],
+                },
+                $maxDistance: maxDistance,
               },
-              $maxDistance: maxDistance,
             },
-          },
-        }).sort({ timestamp: -1 }).limit(limit).lean(),
+          })
+          .sort({ timestamp: -1 })
+          .limit(limit)
+          .lean(),
 
-        this.coldModel.find({
-          coordinates: {
-            $near: {
-              $geometry: {
-                type: 'Point',
-                coordinates: [longitude, latitude],
+        this.coldModel
+          .find({
+            coordinates: {
+              $near: {
+                $geometry: {
+                  type: 'Point',
+                  coordinates: [longitude, latitude],
+                },
+                $maxDistance: maxDistance,
               },
-              $maxDistance: maxDistance,
             },
-          },
-        }).sort({ timestamp: -1 }).limit(limit).lean(),
+          })
+          .sort({ timestamp: -1 })
+          .limit(limit)
+          .lean(),
       ]);
 
       results.push(...hotData, ...warmData, ...coldData);
@@ -246,7 +278,10 @@ export class SmartQueryService {
       sources.cold = coldData.length;
 
       // Sort by timestamp and limit
-      results.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      results.sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
       const finalResults = results.slice(0, limit);
 
       const executionTime = Date.now() - startTime;
@@ -255,9 +290,8 @@ export class SmartQueryService {
         data: finalResults,
         sources,
         totalCount: finalResults.length,
-        executionTime
+        executionTime,
       };
-
     } catch (error) {
       this.logger.error('Error during location-based query:', error);
       throw error;
@@ -307,11 +341,11 @@ export class SmartQueryService {
     interval: 'hourly' | 'daily' | 'weekly' = 'daily'
   ): Promise<QueryResult> {
     const startTime = Date.now();
-    
+
     // Use smart query to get data from appropriate collections
     const queryResult = await this.getAirQualityData(startDate, endDate, {
       location,
-      limit: 10000 // Higher limit for time-series analysis
+      limit: 10000, // Higher limit for time-series analysis
     });
 
     // Group data by time interval
@@ -323,11 +357,14 @@ export class SmartQueryService {
       data: groupedData,
       sources: queryResult.sources,
       totalCount: groupedData.length,
-      executionTime
+      executionTime,
     };
   }
 
-  private groupByTimeInterval(data: any[], interval: 'hourly' | 'daily' | 'weekly') {
+  private groupByTimeInterval(
+    data: any[],
+    interval: 'hourly' | 'daily' | 'weekly'
+  ) {
     const grouped: { [key: string]: any[] } = {};
 
     data.forEach(record => {
@@ -358,36 +395,54 @@ export class SmartQueryService {
     });
 
     // Convert to array and calculate averages
-    return Object.entries(grouped).map(([timeKey, records]) => {
-      const avgAqi = records.reduce((sum, r) => sum + r.aqi, 0) / records.length;
-      const avgTemp = records.reduce((sum, r) => sum + r.weather.temperature, 0) / records.length;
-      const avgHumidity = records.reduce((sum, r) => sum + r.weather.humidity, 0) / records.length;
+    return Object.entries(grouped)
+      .map(([timeKey, records]) => {
+        const avgAqi =
+          records.reduce((sum, r) => sum + r.aqi, 0) / records.length;
+        const avgTemp =
+          records.reduce((sum, r) => sum + r.weather.temperature, 0) /
+          records.length;
+        const avgHumidity =
+          records.reduce((sum, r) => sum + r.weather.humidity, 0) /
+          records.length;
 
-      return {
-        timestamp: timeKey,
-        avg_aqi: Math.round(avgAqi * 100) / 100,
-        avg_temperature: Math.round(avgTemp * 100) / 100,
-        avg_humidity: Math.round(avgHumidity * 100) / 100,
-        record_count: records.length,
-        dominant_pollutant: this.getDominantPollutant(records),
-        pollution_level: this.getDominantPollutionLevel(records)
-      };
-    }).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        return {
+          timestamp: timeKey,
+          avg_aqi: Math.round(avgAqi * 100) / 100,
+          avg_temperature: Math.round(avgTemp * 100) / 100,
+          avg_humidity: Math.round(avgHumidity * 100) / 100,
+          record_count: records.length,
+          dominant_pollutant: this.getDominantPollutant(records),
+          pollution_level: this.getDominantPollutionLevel(records),
+        };
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
   }
 
   private getDominantPollutant(records: any[]): string {
     const pollutantCounts: { [key: string]: number } = {};
     records.forEach(record => {
-      pollutantCounts[record.main_pollutant] = (pollutantCounts[record.main_pollutant] || 0) + 1;
+      pollutantCounts[record.main_pollutant] =
+        (pollutantCounts[record.main_pollutant] || 0) + 1;
     });
-    return Object.entries(pollutantCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'unknown';
+    return (
+      Object.entries(pollutantCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+      'unknown'
+    );
   }
 
   private getDominantPollutionLevel(records: any[]): string {
     const levelCounts: { [key: string]: number } = {};
     records.forEach(record => {
-      levelCounts[record.pollution_level] = (levelCounts[record.pollution_level] || 0) + 1;
+      levelCounts[record.pollution_level] =
+        (levelCounts[record.pollution_level] || 0) + 1;
     });
-    return Object.entries(levelCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'unknown';
+    return (
+      Object.entries(levelCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+      'unknown'
+    );
   }
-} 
+}

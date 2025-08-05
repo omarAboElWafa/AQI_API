@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { IQAirApiService, StandardizedAirQualityData } from './iqair-api.service';
+import {
+  IQAirApiService,
+  StandardizedAirQualityData,
+} from './iqair-api.service';
 import axios from 'axios';
 
 jest.mock('axios');
@@ -36,14 +39,16 @@ describe('IQAirApiService', () => {
   describe('constructor', () => {
     it('should initialize with valid API key', () => {
       mockConfigService.get.mockReturnValue('test-api-key');
-      
+
       expect(() => new IQAirApiService(configService)).not.toThrow();
     });
 
     it('should throw error when API key is missing', () => {
       mockConfigService.get.mockReturnValue(null);
-      
-      expect(() => new IQAirApiService(configService)).toThrow('IQAir API key is required');
+
+      expect(() => new IQAirApiService(configService)).toThrow(
+        'IQAir API key is required'
+      );
     });
   });
 
@@ -86,7 +91,11 @@ describe('IQAirApiService', () => {
         get: jest.fn().mockResolvedValue(mockApiResponse),
       } as any);
 
-      const result = await service.fetchCityAirQuality('Paris', 'Ile-de-France', 'France');
+      const result = await service.fetchCityAirQuality(
+        'Paris',
+        'Ile-de-France',
+        'France'
+      );
 
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
@@ -107,7 +116,11 @@ describe('IQAirApiService', () => {
         get: jest.fn().mockRejectedValue(mockError),
       } as any);
 
-      const result = await service.fetchCityAirQuality('Paris', 'Ile-de-France', 'France');
+      const result = await service.fetchCityAirQuality(
+        'Paris',
+        'Ile-de-France',
+        'France'
+      );
 
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();
@@ -124,7 +137,11 @@ describe('IQAirApiService', () => {
         get: jest.fn().mockRejectedValue(mockError),
       } as any);
 
-      const result = await service.fetchCityAirQuality('Paris', 'Ile-de-France', 'France');
+      const result = await service.fetchCityAirQuality(
+        'Paris',
+        'Ile-de-France',
+        'France'
+      );
 
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();
@@ -171,7 +188,10 @@ describe('IQAirApiService', () => {
         get: jest.fn().mockResolvedValue(mockApiResponse),
       } as any);
 
-      const result = await service.fetchNearestCityAirQuality(48.856613, 2.352222);
+      const result = await service.fetchNearestCityAirQuality(
+        48.856613,
+        2.352222
+      );
 
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
@@ -191,7 +211,10 @@ describe('IQAirApiService', () => {
         get: jest.fn().mockRejectedValue(mockError),
       } as any);
 
-      const result = await service.fetchNearestCityAirQuality(48.856613, 2.352222);
+      const result = await service.fetchNearestCityAirQuality(
+        48.856613,
+        2.352222
+      );
 
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();
@@ -257,7 +280,11 @@ describe('IQAirApiService', () => {
       const responseTime = 150;
       const retryCount = 0;
 
-      const result = service['standardizeApiResponse'](mockApiResponse, responseTime, retryCount);
+      const result = service['standardizeApiResponse'](
+        mockApiResponse,
+        responseTime,
+        retryCount
+      );
 
       expect(result).toEqual({
         location: 'Paris, Ile-de-France, France',
@@ -333,4 +360,4 @@ describe('IQAirApiService', () => {
       expect(delay3).toBeGreaterThan(delay2);
     });
   });
-}); 
+});

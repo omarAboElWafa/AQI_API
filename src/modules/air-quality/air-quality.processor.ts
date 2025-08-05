@@ -19,14 +19,16 @@ export class AirQualityProcessor {
 
   @Process('fetch-air-quality')
   async handleFetchAirQuality(job: Job<FetchAirQualityJob>) {
-    this.logger.log(`Processing air quality fetch job for ${job.data.city}, ${job.data.state}, ${job.data.country}`);
+    this.logger.log(
+      `Processing air quality fetch job for ${job.data.city}, ${job.data.state}, ${job.data.country}`
+    );
 
     try {
       // Fetch air quality data from IQAir API
       const airQualityData = await this.airQualityService.fetchAirQualityData(
         job.data.city,
         job.data.state,
-        job.data.country,
+        job.data.country
       );
 
       // Create DTO for database storage
@@ -52,18 +54,23 @@ export class AirQualityProcessor {
       // Save to database
       await this.airQualityService.createAirQualityRecord(createDto);
 
-      this.logger.log(`Successfully processed air quality data for ${job.data.city}`);
-      
+      this.logger.log(
+        `Successfully processed air quality data for ${job.data.city}`
+      );
+
       return {
         success: true,
         city: job.data.city,
         timestamp: new Date(),
       };
     } catch (error) {
-      this.logger.error(`Failed to process air quality fetch job for ${job.data.city}:`, error);
-      
+      this.logger.error(
+        `Failed to process air quality fetch job for ${job.data.city}:`,
+        error
+      );
+
       // Re-throw the error to mark the job as failed
       throw error;
     }
   }
-} 
+}

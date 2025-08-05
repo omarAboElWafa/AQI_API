@@ -22,16 +22,16 @@ import { QueueController } from './controllers/queue.controller';
         },
         defaultJobOptions: {
           removeOnComplete: 100, // Keep last 100 completed jobs
-          removeOnFail: 50,      // Keep last 50 failed jobs
-          attempts: 5,           // Retry up to 5 times
+          removeOnFail: 50, // Keep last 50 failed jobs
+          attempts: 5, // Retry up to 5 times
           backoff: {
             type: 'exponential',
-            delay: 30000,        // Start with 30s delay
+            delay: 30000, // Start with 30s delay
           },
         },
         settings: {
-          stalledInterval: 30 * 1000,    // 30 seconds
-          maxStalledCount: 1,            // Max stalled jobs before considered failed
+          stalledInterval: 30 * 1000, // 30 seconds
+          maxStalledCount: 1, // Max stalled jobs before considered failed
         },
       }),
       inject: [ConfigService],
@@ -54,7 +54,7 @@ import { QueueController } from './controllers/queue.controller';
           attempts: 3,
           backoff: {
             type: 'exponential',
-            delay: 10000,        // Start with 10s delay
+            delay: 10000, // Start with 10s delay
           },
         },
       }),
@@ -78,11 +78,11 @@ import { QueueController } from './controllers/queue.controller';
           attempts: 2,
           backoff: {
             type: 'fixed',
-            delay: 60000,        // 1 minute delay
+            delay: 60000, // 1 minute delay
           },
         },
         settings: {
-          stalledInterval: 60 * 1000,    // 1 minute
+          stalledInterval: 60 * 1000, // 1 minute
           maxStalledCount: 2,
         },
       }),
@@ -94,4 +94,4 @@ import { QueueController } from './controllers/queue.controller';
   providers: [QueueService, QueueHealthService],
   exports: [BullModule, QueueService, QueueHealthService],
 })
-export class QueueModule {} 
+export class QueueModule {}

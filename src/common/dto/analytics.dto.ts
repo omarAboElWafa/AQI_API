@@ -1,4 +1,13 @@
-import { IsString, IsOptional, IsNumber, IsEnum, IsDateString, Min, Max, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsEnum,
+  IsDateString,
+  Min,
+  Max,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -12,23 +21,48 @@ export class DailyStatsDto {
   @ApiProperty({ description: 'Country name' })
   country: string;
 
-  @ApiProperty({ description: 'Average AQI for the day', minimum: 0, maximum: 500 })
+  @ApiProperty({
+    description: 'Average AQI for the day',
+    minimum: 0,
+    maximum: 500,
+  })
   averageAQI: number;
 
-  @ApiProperty({ description: 'Maximum AQI for the day', minimum: 0, maximum: 500 })
+  @ApiProperty({
+    description: 'Maximum AQI for the day',
+    minimum: 0,
+    maximum: 500,
+  })
   maxAQI: number;
 
-  @ApiProperty({ description: 'Minimum AQI for the day', minimum: 0, maximum: 500 })
+  @ApiProperty({
+    description: 'Minimum AQI for the day',
+    minimum: 0,
+    maximum: 500,
+  })
   minAQI: number;
 
   @ApiProperty({ description: 'Dominant pollutant for the day' })
   dominantPollutant: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Pollution level category',
-    enum: ['Good', 'Moderate', 'Unhealthy for Sensitive Groups', 'Unhealthy', 'Very Unhealthy', 'Hazardous']
+    enum: [
+      'Good',
+      'Moderate',
+      'Unhealthy for Sensitive Groups',
+      'Unhealthy',
+      'Very Unhealthy',
+      'Hazardous',
+    ],
   })
-  pollutionLevel: 'Good' | 'Moderate' | 'Unhealthy for Sensitive Groups' | 'Unhealthy' | 'Very Unhealthy' | 'Hazardous';
+  pollutionLevel:
+    | 'Good'
+    | 'Moderate'
+    | 'Unhealthy for Sensitive Groups'
+    | 'Unhealthy'
+    | 'Very Unhealthy'
+    | 'Hazardous';
 
   @ApiProperty({ description: 'Hourly averages for the day', type: [Object] })
   hourlyAverages: Array<{
@@ -40,7 +74,10 @@ export class DailyStatsDto {
   @ApiProperty({ description: 'Total number of records for the day' })
   totalRecords: number;
 
-  @ApiProperty({ description: 'Hours with missing data (0-23)', type: [Number] })
+  @ApiProperty({
+    description: 'Hours with missing data (0-23)',
+    type: [Number],
+  })
   missingDataHours: number[];
 
   @ApiProperty({ description: 'Last updated timestamp' })
@@ -48,16 +85,32 @@ export class DailyStatsDto {
 }
 
 export class HourlyStatsDto {
-  @ApiProperty({ description: 'Hour of the day (0-23)', minimum: 0, maximum: 23 })
+  @ApiProperty({
+    description: 'Hour of the day (0-23)',
+    minimum: 0,
+    maximum: 23,
+  })
   hour: number;
 
-  @ApiProperty({ description: 'Average AQI for this hour', minimum: 0, maximum: 500 })
+  @ApiProperty({
+    description: 'Average AQI for this hour',
+    minimum: 0,
+    maximum: 500,
+  })
   averageAQI: number;
 
-  @ApiProperty({ description: 'Maximum AQI for this hour', minimum: 0, maximum: 500 })
+  @ApiProperty({
+    description: 'Maximum AQI for this hour',
+    minimum: 0,
+    maximum: 500,
+  })
   maxAQI: number;
 
-  @ApiProperty({ description: 'Minimum AQI for this hour', minimum: 0, maximum: 500 })
+  @ApiProperty({
+    description: 'Minimum AQI for this hour',
+    minimum: 0,
+    maximum: 500,
+  })
   minAQI: number;
 
   @ApiProperty({ description: 'Dominant pollutant for this hour' })
@@ -79,13 +132,25 @@ export class HistoricalTrendDto {
   @ApiProperty({ description: 'Date in YYYY-MM-DD format' })
   date: string;
 
-  @ApiProperty({ description: 'Average AQI for the day', minimum: 0, maximum: 500 })
+  @ApiProperty({
+    description: 'Average AQI for the day',
+    minimum: 0,
+    maximum: 500,
+  })
   averageAQI: number;
 
-  @ApiProperty({ description: 'Maximum AQI for the day', minimum: 0, maximum: 500 })
+  @ApiProperty({
+    description: 'Maximum AQI for the day',
+    minimum: 0,
+    maximum: 500,
+  })
   maxAQI: number;
 
-  @ApiProperty({ description: 'Minimum AQI for the day', minimum: 0, maximum: 500 })
+  @ApiProperty({
+    description: 'Minimum AQI for the day',
+    minimum: 0,
+    maximum: 500,
+  })
   minAQI: number;
 
   @ApiProperty({ description: 'Dominant pollutant for the day' })
@@ -99,7 +164,11 @@ export class PollutionPatternDto {
   @ApiProperty({ description: 'Time slot (e.g., "14:00")' })
   timeSlot: string;
 
-  @ApiProperty({ description: 'Average AQI for this time slot', minimum: 0, maximum: 500 })
+  @ApiProperty({
+    description: 'Average AQI for this time slot',
+    minimum: 0,
+    maximum: 500,
+  })
   averageAQI: number;
 
   @ApiProperty({ description: 'Frequency of occurrence' })
@@ -116,7 +185,11 @@ export class MostPollutedTimeDto {
   @ApiProperty({ description: 'Timestamp of the most polluted time' })
   timestamp: Date;
 
-  @ApiProperty({ description: 'AQI value at the most polluted time', minimum: 0, maximum: 500 })
+  @ApiProperty({
+    description: 'AQI value at the most polluted time',
+    minimum: 0,
+    maximum: 500,
+  })
   aqi: number;
 
   @ApiProperty({ description: 'Pollutant at the most polluted time' })
@@ -147,7 +220,10 @@ export class ComprehensiveReportDto {
   @ApiProperty({ description: 'Historical trends', type: [HistoricalTrendDto] })
   historicalTrends: HistoricalTrendDto[];
 
-  @ApiProperty({ description: 'Pollution patterns', type: [PollutionPatternDto] })
+  @ApiProperty({
+    description: 'Pollution patterns',
+    type: [PollutionPatternDto],
+  })
   pollutionPatterns: PollutionPatternDto[];
 
   @ApiProperty({ description: 'Summary statistics' })
@@ -176,14 +252,21 @@ export class AnalyticsQueryDto {
   @IsDateString()
   date?: string;
 
-  @ApiPropertyOptional({ description: 'Number of days to analyze', minimum: 1, maximum: 365 })
+  @ApiPropertyOptional({
+    description: 'Number of days to analyze',
+    minimum: 1,
+    maximum: 365,
+  })
   @IsOptional()
   @IsNumber()
   @Min(1)
   @Max(365)
   days?: number;
 
-  @ApiPropertyOptional({ description: 'Analysis period', enum: ['weekly', 'monthly'] })
+  @ApiPropertyOptional({
+    description: 'Analysis period',
+    enum: ['weekly', 'monthly'],
+  })
   @IsOptional()
   @IsEnum(['weekly', 'monthly'])
   period?: 'weekly' | 'monthly';
@@ -205,7 +288,11 @@ export class CacheInvalidationDto {
 }
 
 export class TopCitiesQueryDto {
-  @ApiPropertyOptional({ description: 'Number of cities to return', minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({
+    description: 'Number of cities to return',
+    minimum: 1,
+    maximum: 100,
+  })
   @IsOptional()
   @IsNumber()
   @Min(1)
@@ -214,7 +301,10 @@ export class TopCitiesQueryDto {
 }
 
 export class AnalyticsHealthDto {
-  @ApiProperty({ description: 'Service health status', enum: ['healthy', 'degraded', 'unhealthy'] })
+  @ApiProperty({
+    description: 'Service health status',
+    enum: ['healthy', 'degraded', 'unhealthy'],
+  })
   status: 'healthy' | 'degraded' | 'unhealthy';
 
   @ApiProperty({ description: 'Health check timestamp' })
@@ -237,7 +327,10 @@ export class AnalyticsSummaryDto {
   @ApiProperty({ description: 'Average AQI across the period' })
   averageAQI: number;
 
-  @ApiProperty({ description: 'Trend direction', enum: ['improving', 'worsening', 'stable'] })
+  @ApiProperty({
+    description: 'Trend direction',
+    enum: ['improving', 'worsening', 'stable'],
+  })
   trend: 'improving' | 'worsening' | 'stable';
 
   @ApiProperty({ description: 'Dominant pollutant' })
@@ -274,4 +367,4 @@ export class AnalyticsMetricsDto {
 
   @ApiProperty({ description: 'Last aggregation timestamp' })
   lastAggregation: Date;
-} 
+}

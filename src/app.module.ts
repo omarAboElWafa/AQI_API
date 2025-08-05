@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BullModule } from '@nestjs/bull';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ScheduleModule } from '@nestjs/schedule';
-import * as redisStore from 'cache-manager-redis-store';
+import { redisStore } from 'cache-manager-ioredis';
 
 import configuration from './config/configuration';
 
@@ -23,20 +23,20 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
       load: [configuration],
       envFilePath: '.env',
     }),
-    
+
     // Database
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService) => ({
+      useFactory: async (configService: ConfigService) => ({
         uri: configService.get('database.uri'),
       }),
       inject: [ConfigService],
     }),
-    
+
     // Cache with Redis
     CacheModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService) => ({
+      useFactory: async (configService: ConfigService) => ({
         store: redisStore,
         host: configService.get('redis.host'),
         port: configService.get('redis.port'),
@@ -44,11 +44,11 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
       }),
       inject: [ConfigService],
     }),
-    
+
     // Bull Queue
     BullModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService) => ({
+      useFactory: async (configService: ConfigService) => ({
         redis: {
           host: configService.get('bull.redis.host'),
           port: configService.get('bull.redis.port'),
@@ -56,10 +56,10 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
       }),
       inject: [ConfigService],
     }),
-    
+
     // Schedule
     ScheduleModule.forRoot(),
-    
+
     // Application modules
     AirQualityModule,
     DatabaseModule,
@@ -70,4 +70,4 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
   controllers: [],
   providers: [],
 })
-export class AppModule {} 
+export class AppModule {}

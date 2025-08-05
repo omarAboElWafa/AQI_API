@@ -1,30 +1,39 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
-import { Inject } from '@nestjs/common';
-import axios from 'axios';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectModel } from '@nestjs/mongoose';
+import axios from 'axios';
+import { Queue } from 'bull';
+import { Model } from 'mongoose';
 
+import {
+  AirQualityResponseDto,
+  CreateAirQualityDto,
+} from '@/common/dto/air-quality.dto';
+import {
+  AirQualityData,
+  IQAirResponse,
+} from '@/common/interfaces/air-quality.interface';
 import { AirQuality, AirQualityDocument } from './schemas/air-quality.schema';
-import { AirQualityData, IQAirResponse } from '@/common/interfaces/air-quality.interface';
-import { CreateAirQualityDto, AirQualityResponseDto } from '@/common/dto/air-quality.dto';
 
 @Injectable()
 export class AirQualityService {
   private readonly logger = new Logger(AirQualityService.name);
 
   constructor(
-    @InjectModel(AirQuality.name) private airQualityModel: Model<AirQualityDocument>,
+    @InjectModel(AirQuality.name)
+    private airQualityModel: Model<AirQualityDocument>,
     @InjectQueue('air-quality') private airQualityQueue: Queue,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
-    private configService: ConfigService,
+    private configService: ConfigService
   ) {}
 
-  async fetchAirQualityData(city: string, state: string, country: string): Promise<AirQualityData> {
+  async fetchAirQualityData(
+    city: string,
+    state: string,
+    country: string
+  ): Promise<AirQualityData> {
     const apiKey = this.configService.get<string>('iqair.apiKey');
     const baseUrl = this.configService.get<string>('iqair.baseUrl');
 
@@ -51,12 +60,17 @@ export class AirQualityService {
         timestamp: new Date(),
       };
     } catch (error) {
-      this.logger.error(`Failed to fetch air quality data for ${city}, ${state}, ${country}:`, error);
+      this.logger.error(
+        `Failed to fetch air quality data for ${city}, ${state}, ${country}:`,
+        error
+      );
       throw error;
     }
   }
 
-  async createAirQualityRecord(createDto: CreateAirQualityDto): Promise<AirQualityDocument> {
+  async createAirQualityRecord(
+    createDto: CreateAirQualityDto
+  ): Promise<AirQualityDocument> {
     const airQualityData = new this.airQualityModel({
       city: createDto.city,
       state: createDto.state,
@@ -87,9 +101,12 @@ export class AirQualityService {
     return await airQualityData.save();
   }
 
-  async getLatestAirQuality(city: string, country: string): Promise<AirQualityResponseDto> {
+  async getLatestAirQuality(
+    city: string,
+    country: string
+  ): Promise<AirQualityResponseDto> {
     const cacheKey = `air-quality:${city}:${country}:latest`;
-    
+
     // Try to get from cache first
     const cached = await this.cacheManager.get<AirQualityResponseDto>(cacheKey);
     if (cached) {
@@ -102,21 +119,23 @@ export class AirQualityService {
       .exec();
 
     if (!airQuality) {
-      throw new NotFoundException(`No air quality data found for ${city}, ${country}`);
+      throw new NotFoundException(
+        `No air quality data found for ${city}, ${country}`
+      );
     }
 
     const response = this.mapToResponseDto(airQuality);
-    
+
     // Cache the result for 5 minutes
     await this.cacheManager.set(cacheKey, response, 300);
-    
+
     return response;
   }
 
   async getAirQualityHistory(
     city: string,
     country: string,
-    limit: number = 24,
+    limit: number = 24
   ): Promise<AirQualityResponseDto[]> {
     const airQualityRecords = await this.airQualityModel
       .find({ city, country })
@@ -130,7 +149,7 @@ export class AirQualityService {
   async getAirQualityByLocation(
     latitude: number,
     longitude: number,
-    maxDistance: number = 50000, // 50km
+    maxDistance: number = 50000 // 50km
   ): Promise<AirQualityResponseDto[]> {
     const airQualityRecords = await this.airQualityModel
       .find({
@@ -151,7 +170,11 @@ export class AirQualityService {
     return airQualityRecords.map(record => this.mapToResponseDto(record));
   }
 
-  async addToQueue(city: string, state: string, country: string): Promise<void> {
+  async addToQueue(
+    city: string,
+    state: string,
+    country: string
+  ): Promise<void> {
     await this.airQualityQueue.add('fetch-air-quality', {
       city,
       state,
@@ -159,9 +182,11 @@ export class AirQualityService {
     });
   }
 
-  public mapToResponseDto(airQuality: AirQualityDocument): AirQualityResponseDto {
+  public mapToResponseDto(
+    airQuality: AirQualityDocument
+  ): AirQualityResponseDto {
     const aqiLevel = this.getAQILevel(airQuality.pollution.aqius);
-    
+
     return {
       city: airQuality.city,
       state: airQuality.state,
@@ -178,6 +203,10 @@ export class AirQualityService {
       weatherIcon: airQuality.weather.ic,
       timestamp: airQuality.timestamp,
       level: aqiLevel,
+      location: {
+        latitude: airQuality.location.coordinates[1],
+        longitude: airQuality.location.coordinates[0],
+      },
     };
   }
 
@@ -189,4 +218,8 @@ export class AirQualityService {
     if (aqi <= 300) return 'Very Unhealthy';
     return 'Hazardous';
   }
-} 
+
+  public getAirQualityLevel(aqi: number): string {
+    return this.getAQILevel(aqi);
+  }
+}

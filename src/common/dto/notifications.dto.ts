@@ -1,4 +1,15 @@
-import { IsString, IsNumber, IsBoolean, IsOptional, IsEnum, IsEmail, IsDateString, Min, Max, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsBoolean,
+  IsOptional,
+  IsEnum,
+  IsEmail,
+  IsDateString,
+  Min,
+  Max,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -27,7 +38,10 @@ export class EmailDeliveryDto {
   @ApiProperty({ description: 'Email subject' })
   subject: string;
 
-  @ApiProperty({ description: 'Delivery status', enum: ['pending', 'sent', 'failed', 'retrying'] })
+  @ApiProperty({
+    description: 'Delivery status',
+    enum: ['pending', 'sent', 'failed', 'retrying'],
+  })
   status: 'pending' | 'sent' | 'failed' | 'retrying';
 
   @ApiProperty({ description: 'Number of delivery attempts' })
@@ -91,25 +105,41 @@ export class AlertHistoryDto {
 }
 
 export class AlertThresholdDto {
-  @ApiProperty({ description: 'Consecutive API failures threshold', minimum: 1, maximum: 100 })
+  @ApiProperty({
+    description: 'Consecutive API failures threshold',
+    minimum: 1,
+    maximum: 100,
+  })
   @IsNumber()
   @Min(1)
   @Max(100)
   consecutive_api_failures: number;
 
-  @ApiProperty({ description: 'High pollution AQI threshold', minimum: 50, maximum: 300 })
+  @ApiProperty({
+    description: 'High pollution AQI threshold',
+    minimum: 50,
+    maximum: 300,
+  })
   @IsNumber()
   @Min(50)
   @Max(300)
   high_pollution_aqi: number;
 
-  @ApiProperty({ description: 'Extreme pollution AQI threshold', minimum: 100, maximum: 500 })
+  @ApiProperty({
+    description: 'Extreme pollution AQI threshold',
+    minimum: 100,
+    maximum: 500,
+  })
   @IsNumber()
   @Min(100)
   @Max(500)
   extreme_pollution_aqi: number;
 
-  @ApiProperty({ description: 'Queue backlog size threshold', minimum: 10, maximum: 1000 })
+  @ApiProperty({
+    description: 'Queue backlog size threshold',
+    minimum: 10,
+    maximum: 1000,
+  })
   @IsNumber()
   @Min(10)
   @Max(1000)
@@ -119,19 +149,31 @@ export class AlertThresholdDto {
   @IsString()
   daily_summary_time: string;
 
-  @ApiProperty({ description: 'System error rate threshold (0-1)', minimum: 0, maximum: 1 })
+  @ApiProperty({
+    description: 'System error rate threshold (0-1)',
+    minimum: 0,
+    maximum: 1,
+  })
   @IsNumber()
   @Min(0)
   @Max(1)
   system_error_rate: number;
 
-  @ApiProperty({ description: 'Storage usage threshold (0-1)', minimum: 0, maximum: 1 })
+  @ApiProperty({
+    description: 'Storage usage threshold (0-1)',
+    minimum: 0,
+    maximum: 1,
+  })
   @IsNumber()
   @Min(0)
   @Max(1)
   storage_usage_threshold: number;
 
-  @ApiProperty({ description: 'Email rate limit per hour', minimum: 10, maximum: 1000 })
+  @ApiProperty({
+    description: 'Email rate limit per hour',
+    minimum: 10,
+    maximum: 1000,
+  })
   @IsNumber()
   @Min(10)
   @Max(1000)
@@ -218,7 +260,10 @@ export class SendEmailDto {
   @IsString()
   text?: string;
 
-  @ApiPropertyOptional({ description: 'Alert type for template generation', enum: AlertType })
+  @ApiPropertyOptional({
+    description: 'Alert type for template generation',
+    enum: AlertType,
+  })
   @IsOptional()
   @IsEnum(AlertType)
   alertType?: AlertType;
@@ -229,7 +274,11 @@ export class PollutionAlertDto {
   @IsString()
   city: string;
 
-  @ApiProperty({ description: 'Air Quality Index value', minimum: 0, maximum: 500 })
+  @ApiProperty({
+    description: 'Air Quality Index value',
+    minimum: 0,
+    maximum: 500,
+  })
   @IsNumber()
   @Min(0)
   @Max(500)
@@ -326,13 +375,21 @@ export class SystemHealthDto {
   @Type(() => QueueHealthDto)
   queueHealth: QueueHealthDto[];
 
-  @ApiProperty({ description: 'Storage usage percentage (0-1)', minimum: 0, maximum: 1 })
+  @ApiProperty({
+    description: 'Storage usage percentage (0-1)',
+    minimum: 0,
+    maximum: 1,
+  })
   @IsNumber()
   @Min(0)
   @Max(1)
   storageUsage: number;
 
-  @ApiProperty({ description: 'System error rate (0-1)', minimum: 0, maximum: 1 })
+  @ApiProperty({
+    description: 'System error rate (0-1)',
+    minimum: 0,
+    maximum: 1,
+  })
   @IsNumber()
   @Min(0)
   @Max(1)
@@ -402,7 +459,10 @@ export class EmailStatsDto {
 }
 
 export class NotificationsHealthDto {
-  @ApiProperty({ description: 'Service health status', enum: ['healthy', 'degraded', 'unhealthy'] })
+  @ApiProperty({
+    description: 'Service health status',
+    enum: ['healthy', 'degraded', 'unhealthy'],
+  })
   status: 'healthy' | 'degraded' | 'unhealthy';
 
   @ApiProperty({ description: 'Health check timestamp' })
@@ -458,10 +518,14 @@ export class AlertFiltersDto {
   @IsDateString()
   endDate?: Date;
 
-  @ApiPropertyOptional({ description: 'Number of alerts to return', minimum: 1, maximum: 1000 })
+  @ApiPropertyOptional({
+    description: 'Number of alerts to return',
+    minimum: 1,
+    maximum: 1000,
+  })
   @IsOptional()
   @IsNumber()
   @Min(1)
   @Max(1000)
   limit?: number;
-} 
+}

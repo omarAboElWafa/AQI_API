@@ -1,10 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
+import { Test, TestingModule } from '@nestjs/testing';
 import { Model } from 'mongoose';
+import { QueueService } from '../queue/services/queue.service';
 import { AirQualityService } from './air-quality.service';
 import { AirQuality, AirQualityDocument } from './schemas/air-quality.schema';
 import { IQAirApiService } from './services/iqair-api.service';
-import { QueueService } from '../queue/services/queue.service';
 
 describe('AirQualityService', () => {
   let service: AirQualityService;
@@ -50,7 +50,9 @@ describe('AirQualityService', () => {
     }).compile();
 
     service = module.get<AirQualityService>(AirQualityService);
-    airQualityModel = module.get<Model<AirQualityDocument>>(getModelToken(AirQuality.name));
+    airQualityModel = module.get<Model<AirQualityDocument>>(
+      getModelToken(AirQuality.name)
+    );
     iqairApiService = module.get<IQAirApiService>(IQAirApiService);
     queueService = module.get<QueueService>(QueueService);
   });
@@ -100,8 +102,18 @@ describe('AirQualityService', () => {
   describe('getAirQualityHistory', () => {
     it('should return air quality history for specified days', async () => {
       const mockData = [
-        { city: 'Paris', country: 'France', pollution: { aqius: 65 }, timestamp: new Date() },
-        { city: 'Paris', country: 'France', pollution: { aqius: 70 }, timestamp: new Date() },
+        {
+          city: 'Paris',
+          country: 'France',
+          pollution: { aqius: 65 },
+          timestamp: new Date(),
+        },
+        {
+          city: 'Paris',
+          country: 'France',
+          pollution: { aqius: 70 },
+          timestamp: new Date(),
+        },
       ];
 
       const daysAgo = new Date();
@@ -126,7 +138,9 @@ describe('AirQualityService', () => {
     });
 
     it('should use default limit when days parameter is not provided', async () => {
-      const mockData = [{ city: 'Paris', country: 'France', pollution: { aqius: 65 } }];
+      const mockData = [
+        { city: 'Paris', country: 'France', pollution: { aqius: 65 } },
+      ];
 
       mockAirQualityModel.find.mockReturnValue({
         sort: jest.fn().mockReturnValue({
@@ -161,7 +175,11 @@ describe('AirQualityService', () => {
         exec: jest.fn().mockResolvedValue(mockData),
       });
 
-      const result = await service.getAirQualityByLocation(48.856613, 2.352222, 50000);
+      const result = await service.getAirQualityByLocation(
+        48.856613,
+        2.352222,
+        50000
+      );
 
       expect(result).toEqual(mockData);
       expect(mockAirQualityModel.find).toHaveBeenCalledWith({
@@ -284,13 +302,32 @@ describe('AirQualityService', () => {
         city: 'Paris',
         state: 'Ile-de-France',
         country: 'France',
-        pollution: { aqius: 65, mainus: 'p2' },
-        weather: { tp: 22, hu: 60 },
+        pollution: {
+          ts: '2024-01-01T00:00:00Z',
+          aqius: 65,
+          mainus: 'p2',
+          aqicn: 65,
+          maincn: 'p2',
+        },
+        weather: {
+          ts: '2024-01-01T00:00:00Z',
+          tp: 22,
+          pr: 1013,
+          hu: 60,
+          ws: 3.5,
+          wd: 270,
+          ic: '01d',
+        },
         timestamp: new Date(),
-        location: { coordinates: [2.352222, 48.856613] },
+        location: {
+          type: 'Point',
+          coordinates: [2.352222, 48.856613] as [number, number],
+        },
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
-      const result = service.mapToResponseDto(mockRecord);
+      const result = service.mapToResponseDto(mockRecord as AirQualityDocument);
 
       expect(result).toEqual({
         city: 'Paris',
@@ -329,4 +366,4 @@ describe('AirQualityService', () => {
       expect(result).toBe(expectedLevel);
     });
   });
-}); 
+});

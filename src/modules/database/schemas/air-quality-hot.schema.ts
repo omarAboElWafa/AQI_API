@@ -3,15 +3,15 @@ import { Document } from 'mongoose';
 
 export type AirQualityHotDocument = AirQualityHot & Document;
 
-@Schema({ 
+@Schema({
   timestamps: true,
-  collection: 'air_quality_hot'
+  collection: 'air_quality_hot',
 })
 export class AirQualityHot {
-  @Prop({ 
-    required: true, 
+  @Prop({
+    required: true,
     default: 'paris',
-    index: true 
+    index: true,
   })
   location: string;
 
@@ -27,30 +27,37 @@ export class AirQualityHot {
     longitude: number;
   };
 
-  @Prop({ 
-    required: true, 
+  @Prop({
+    required: true,
     index: true,
-    type: Date 
+    type: Date,
   })
   timestamp: Date;
 
-  @Prop({ 
+  @Prop({
     required: true,
     min: 0,
     max: 500,
-    index: true 
+    index: true,
   })
   aqi: number;
 
-  @Prop({ 
+  @Prop({
     required: true,
-    enum: ['p1', 'p2', 'p3', 'p4', 'p5', 'n2', 's4', 'co', 'o3', 'no2', 'so2']
+    enum: ['p1', 'p2', 'p3', 'p4', 'p5', 'n2', 's4', 'co', 'o3', 'no2', 'so2'],
   })
   main_pollutant: string;
 
-  @Prop({ 
+  @Prop({
     required: true,
-    enum: ['Good', 'Moderate', 'Unhealthy for Sensitive Groups', 'Unhealthy', 'Very Unhealthy', 'Hazardous']
+    enum: [
+      'Good',
+      'Moderate',
+      'Unhealthy for Sensitive Groups',
+      'Unhealthy',
+      'Very Unhealthy',
+      'Hazardous',
+    ],
   })
   pollution_level: string;
 
@@ -99,21 +106,27 @@ AirQualityHotSchema.index({ timestamp: -1, aqi: -1 });
 AirQualityHotSchema.index({ location: 1, timestamp: -1 });
 
 // Geospatial index for location-based queries
-AirQualityHotSchema.index({ 
-  coordinates: '2dsphere' 
+AirQualityHotSchema.index({
+  coordinates: '2dsphere',
 });
 
 // Partial index for high AQI values (for alerting)
-AirQualityHotSchema.index({ 
-  aqi: 1, 
-  timestamp: -1 
-}, { 
-  partialFilterExpression: { aqi: { $gte: 100 } } 
-});
+AirQualityHotSchema.index(
+  {
+    aqi: 1,
+    timestamp: -1,
+  },
+  {
+    partialFilterExpression: { aqi: { $gte: 100 } },
+  }
+);
 
 // TTL index - Auto-delete after 30 days
-AirQualityHotSchema.index({ 
-  timestamp: 1 
-}, { 
-  expireAfterSeconds: 30 * 24 * 60 * 60 // 30 days
-}); 
+AirQualityHotSchema.index(
+  {
+    timestamp: 1,
+  },
+  {
+    expireAfterSeconds: 30 * 24 * 60 * 60, // 30 days
+  }
+);

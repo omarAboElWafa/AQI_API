@@ -1,4 +1,15 @@
-import { IsString, IsNumber, IsOptional, IsDate, IsEnum, IsInt, Min, Max, IsArray, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsDate,
+  IsEnum,
+  IsInt,
+  Min,
+  Max,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
 export class GetAirQualityDto {
@@ -151,7 +162,14 @@ export class AirQualityResponseDto {
   @IsDate()
   timestamp: Date;
 
-  @IsEnum(['Good', 'Moderate', 'Unhealthy for Sensitive Groups', 'Unhealthy', 'Very Unhealthy', 'Hazardous'])
+  @IsEnum([
+    'Good',
+    'Moderate',
+    'Unhealthy for Sensitive Groups',
+    'Unhealthy',
+    'Very Unhealthy',
+    'Hazardous',
+  ])
   level: string;
 
   location: {
@@ -200,7 +218,14 @@ export class AirQualityAlertDto {
   @IsNumber()
   aqi: number;
 
-  @IsEnum(['Good', 'Moderate', 'Unhealthy for Sensitive Groups', 'Unhealthy', 'Very Unhealthy', 'Hazardous'])
+  @IsEnum([
+    'Good',
+    'Moderate',
+    'Unhealthy for Sensitive Groups',
+    'Unhealthy',
+    'Very Unhealthy',
+    'Hazardous',
+  ])
   level: string;
 
   @IsDate()
@@ -208,4 +233,4 @@ export class AirQualityAlertDto {
 
   @IsOptional()
   isActive?: boolean;
-} 
+}

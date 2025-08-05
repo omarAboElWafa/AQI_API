@@ -1,13 +1,19 @@
-import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
-import { MongooseModule } from '@nestjs/mongoose';
 import { CacheModule } from '@nestjs/cache-manager';
+import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
 
-import { AnalyticsService } from './analytics.service';
+import {
+  AirQuality,
+  AirQualitySchema,
+} from '../air-quality/schemas/air-quality.schema';
 import { AnalyticsProcessor } from './analytics.processor';
 import { AnalyticsController } from './controllers/analytics.controller';
-import { DailyAggregation, DailyAggregationSchema } from './schemas/daily-aggregation.schema';
-import { AirQuality, AirQualitySchema } from '../air-quality/schemas/air-quality.schema';
+import {
+  DailyAggregation,
+  DailyAggregationSchema,
+} from './schemas/daily-aggregation.schema';
+import { AnalyticsService } from './services/analytics.service';
 
 @Module({
   imports: [
@@ -24,4 +30,4 @@ import { AirQuality, AirQualitySchema } from '../air-quality/schemas/air-quality
   providers: [AnalyticsService, AnalyticsProcessor],
   exports: [AnalyticsService],
 })
-export class AnalyticsModule {} 
+export class AnalyticsModule {}

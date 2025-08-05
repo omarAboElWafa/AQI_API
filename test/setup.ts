@@ -125,7 +125,8 @@ global.testUtils = {
     exec: jest.fn(),
   }),
 
-  waitForAsync: (ms: number = 100) => new Promise(resolve => setTimeout(resolve, ms)),
+  waitForAsync: (ms: number = 100) =>
+    new Promise(resolve => setTimeout(resolve, ms)),
 };
 
 // Extend Jest matchers
@@ -160,7 +161,8 @@ expect.extend({
   },
 
   toBeValidObjectId(received) {
-    const pass = typeof received === 'string' && /^[0-9a-fA-F]{24}$/.test(received);
+    const pass =
+      typeof received === 'string' && /^[0-9a-fA-F]{24}$/.test(received);
     return {
       message: () => `expected ${received} to be a valid ObjectId`,
       pass,
@@ -168,16 +170,17 @@ expect.extend({
   },
 
   toHaveValidCoordinates(received) {
-    const pass = received && 
-                 typeof received.latitude === 'number' && 
-                 typeof received.longitude === 'number' &&
-                 received.latitude >= -90 && 
-                 received.latitude <= 90 &&
-                 received.longitude >= -180 && 
-                 received.longitude <= 180;
+    const pass =
+      received &&
+      typeof received.latitude === 'number' &&
+      typeof received.longitude === 'number' &&
+      received.latitude >= -90 &&
+      received.latitude <= 90 &&
+      received.longitude >= -180 &&
+      received.longitude <= 180;
     return {
       message: () => `expected ${received} to have valid coordinates`,
       pass,
     };
   },
-}); 
+});

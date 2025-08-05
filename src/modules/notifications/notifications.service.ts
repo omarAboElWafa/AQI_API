@@ -20,16 +20,16 @@ export class NotificationsService {
 
   constructor(
     @InjectQueue('notifications') private notificationsQueue: Queue,
-    private configService: ConfigService,
+    private configService: ConfigService
   ) {
     this.initializeTransporter();
   }
 
   private initializeTransporter() {
     const smtpConfig = this.configService.get('email.smtp');
-    
+
     if (smtpConfig?.host && smtpConfig?.user && smtpConfig?.pass) {
-      this.transporter = nodemailer.createTransporter({
+      this.transporter = nodemailer.createTransport({
         host: smtpConfig.host,
         port: smtpConfig.port,
         secure: false,
@@ -41,9 +41,13 @@ export class NotificationsService {
     }
   }
 
-  async sendAirQualityAlert(city: string, aqi: number, level: string): Promise<void> {
+  async sendAirQualityAlert(
+    city: string,
+    aqi: number,
+    level: string
+  ): Promise<void> {
     const adminEmail = this.configService.get<string>('email.adminEmail');
-    
+
     if (!adminEmail) {
       this.logger.warn('Admin email not configured, skipping alert');
       return;
@@ -84,7 +88,7 @@ export class NotificationsService {
 
   private generateAlertEmail(city: string, aqi: number, level: string): string {
     const color = this.getLevelColor(level);
-    
+
     return `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: ${color};">Air Quality Alert</h2>
@@ -106,13 +110,20 @@ export class NotificationsService {
 
   private getLevelColor(level: string): string {
     switch (level) {
-      case 'Good': return '#00e400';
-      case 'Moderate': return '#ffff00';
-      case 'Unhealthy for Sensitive Groups': return '#ff7e00';
-      case 'Unhealthy': return '#ff0000';
-      case 'Very Unhealthy': return '#8f3f97';
-      case 'Hazardous': return '#7e0023';
-      default: return '#666666';
+      case 'Good':
+        return '#00e400';
+      case 'Moderate':
+        return '#ffff00';
+      case 'Unhealthy for Sensitive Groups':
+        return '#ff7e00';
+      case 'Unhealthy':
+        return '#ff0000';
+      case 'Very Unhealthy':
+        return '#8f3f97';
+      case 'Hazardous':
+        return '#7e0023';
+      default:
+        return '#666666';
     }
   }
 
@@ -134,4 +145,4 @@ export class NotificationsService {
         return '<li>Please check local air quality guidelines</li>';
     }
   }
-} 
+}

@@ -86,4 +86,4 @@ export interface IQAirData {
   country: string;
   location: IQAirLocationData;
   current: IQAirCurrentData;
-} 
+}

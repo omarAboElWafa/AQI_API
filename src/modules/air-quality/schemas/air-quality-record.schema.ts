@@ -3,15 +3,15 @@ import { Document, Types } from 'mongoose';
 
 export type AirQualityRecordDocument = AirQualityRecord & Document;
 
-@Schema({ 
+@Schema({
   timestamps: true,
-  collection: 'air_quality_records'
+  collection: 'air_quality_records',
 })
 export class AirQualityRecord {
-  @Prop({ 
-    required: true, 
+  @Prop({
+    required: true,
     default: 'paris',
-    index: true 
+    index: true,
   })
   location: string;
 
@@ -27,29 +27,36 @@ export class AirQualityRecord {
     longitude: number;
   };
 
-  @Prop({ 
-    required: true, 
+  @Prop({
+    required: true,
     index: true,
-    type: Date 
+    type: Date,
   })
   timestamp: Date;
 
-  @Prop({ 
+  @Prop({
     required: true,
     min: 0,
-    max: 500 
+    max: 500,
   })
   aqi: number;
 
-  @Prop({ 
+  @Prop({
     required: true,
-    enum: ['p1', 'p2', 'p3', 'p4', 'p5', 'n2', 's4', 'co', 'o3', 'no2', 'so2']
+    enum: ['p1', 'p2', 'p3', 'p4', 'p5', 'n2', 's4', 'co', 'o3', 'no2', 'so2'],
   })
   main_pollutant: string;
 
-  @Prop({ 
+  @Prop({
     required: true,
-    enum: ['Good', 'Moderate', 'Unhealthy for Sensitive Groups', 'Unhealthy', 'Very Unhealthy', 'Hazardous']
+    enum: [
+      'Good',
+      'Moderate',
+      'Unhealthy for Sensitive Groups',
+      'Unhealthy',
+      'Very Unhealthy',
+      'Hazardous',
+    ],
   })
   pollution_level: string;
 
@@ -90,30 +97,37 @@ export class AirQualityRecord {
   updatedAt: Date;
 }
 
-export const AirQualityRecordSchema = SchemaFactory.createForClass(AirQualityRecord);
+export const AirQualityRecordSchema =
+  SchemaFactory.createForClass(AirQualityRecord);
 
 // Compound indexes for efficient queries
 AirQualityRecordSchema.index({ location: 1, timestamp: -1 });
 AirQualityRecordSchema.index({ timestamp: -1, location: 1 });
-AirQualityRecordSchema.index({ 'coordinates.latitude': 1, 'coordinates.longitude': 1 });
+AirQualityRecordSchema.index({
+  'coordinates.latitude': 1,
+  'coordinates.longitude': 1,
+});
 
 // Geospatial index for location-based queries
-AirQualityRecordSchema.index({ 
-  coordinates: '2dsphere' 
+AirQualityRecordSchema.index({
+  coordinates: '2dsphere',
 });
 
 // TTL index to automatically delete old records (optional - 90 days)
 // AirQualityRecordSchema.index({ timestamp: 1 }, { expireAfterSeconds: 7776000 });
 
 // Partial index for high AQI values (for alerting)
-AirQualityRecordSchema.index({ 
-  aqi: 1, 
-  timestamp: -1 
-}, { 
-  partialFilterExpression: { aqi: { $gte: 100 } } 
-});
+AirQualityRecordSchema.index(
+  {
+    aqi: 1,
+    timestamp: -1,
+  },
+  {
+    partialFilterExpression: { aqi: { $gte: 100 } },
+  }
+);
 
 // Text index for location search
-AirQualityRecordSchema.index({ 
-  location: 'text' 
-}); 
+AirQualityRecordSchema.index({
+  location: 'text',
+});

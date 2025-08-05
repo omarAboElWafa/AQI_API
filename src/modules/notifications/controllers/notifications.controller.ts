@@ -1,8 +1,32 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, Logger } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Body,
+  Query,
+  Logger,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 
-import { EmailService, AlertType, EmailDelivery } from '../services/email.service';
-import { AlertService, AlertHistory, AlertThreshold } from '../services/alert.service';
+import {
+  EmailService,
+  AlertType,
+  EmailDelivery,
+} from '../services/email.service';
+import {
+  AlertService,
+  AlertHistory,
+  AlertThreshold,
+} from '../services/alert.service';
 import { NotificationsService } from '../notifications.service';
 
 export class AcknowledgeAlertDto {
@@ -36,26 +60,45 @@ export class NotificationsController {
   constructor(
     private readonly emailService: EmailService,
     private readonly alertService: AlertService,
-    private readonly notificationsService: NotificationsService,
+    private readonly notificationsService: NotificationsService
   ) {}
 
   @Get('alerts')
   @ApiOperation({ summary: 'Get alert history with filters' })
   @ApiQuery({ name: 'type', required: false, description: 'Alert type filter' })
-  @ApiQuery({ name: 'severity', required: false, description: 'Severity filter' })
-  @ApiQuery({ name: 'acknowledged', required: false, description: 'Acknowledged filter' })
-  @ApiQuery({ name: 'escalated', required: false, description: 'Escalated filter' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Number of alerts to return' })
-  @ApiResponse({ status: 200, description: 'Alert history retrieved successfully' })
+  @ApiQuery({
+    name: 'severity',
+    required: false,
+    description: 'Severity filter',
+  })
+  @ApiQuery({
+    name: 'acknowledged',
+    required: false,
+    description: 'Acknowledged filter',
+  })
+  @ApiQuery({
+    name: 'escalated',
+    required: false,
+    description: 'Escalated filter',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Number of alerts to return',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Alert history retrieved successfully',
+  })
   async getAlertHistory(
     @Query('type') type?: AlertType,
     @Query('severity') severity?: string,
     @Query('acknowledged') acknowledged?: boolean,
     @Query('escalated') escalated?: boolean,
-    @Query('limit') limit?: number,
+    @Query('limit') limit?: number
   ): Promise<AlertHistory[]> {
     this.logger.log('Fetching alert history with filters');
-    
+
     const filters = {
       type,
       severity,
@@ -68,7 +111,10 @@ export class NotificationsController {
 
   @Get('alerts/active')
   @ApiOperation({ summary: 'Get active (unacknowledged) alerts' })
-  @ApiResponse({ status: 200, description: 'Active alerts retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Active alerts retrieved successfully',
+  })
   async getActiveAlerts(): Promise<AlertHistory[]> {
     this.logger.log('Fetching active alerts');
     return this.alertService.getActiveAlerts();
@@ -76,7 +122,10 @@ export class NotificationsController {
 
   @Get('alerts/stats')
   @ApiOperation({ summary: 'Get alert statistics' })
-  @ApiResponse({ status: 200, description: 'Alert statistics retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Alert statistics retrieved successfully',
+  })
   async getAlertStats(): Promise<{
     total: number;
     bySeverity: Record<string, number>;
@@ -94,9 +143,11 @@ export class NotificationsController {
   @ApiOperation({ summary: 'Get specific alert by ID' })
   @ApiParam({ name: 'alertId', description: 'Alert ID' })
   @ApiResponse({ status: 200, description: 'Alert retrieved successfully' })
-  async getAlert(@Param('alertId') alertId: string): Promise<AlertHistory | null> {
+  async getAlert(
+    @Param('alertId') alertId: string
+  ): Promise<AlertHistory | null> {
     this.logger.log(`Fetching alert: ${alertId}`);
-    
+
     const alerts = await this.alertService.getAlertHistory();
     return alerts.find(alert => alert.id === alertId) || null;
   }
@@ -107,15 +158,23 @@ export class NotificationsController {
   @ApiResponse({ status: 200, description: 'Alert acknowledged successfully' })
   async acknowledgeAlert(
     @Param('alertId') alertId: string,
-    @Body() acknowledgeDto: AcknowledgeAlertDto,
+    @Body() acknowledgeDto: AcknowledgeAlertDto
   ): Promise<AlertHistory | null> {
-    this.logger.log(`Acknowledging alert: ${alertId} by ${acknowledgeDto.acknowledgedBy}`);
-    return this.alertService.acknowledgeAlert(alertId, acknowledgeDto.acknowledgedBy);
+    this.logger.log(
+      `Acknowledging alert: ${alertId} by ${acknowledgeDto.acknowledgedBy}`
+    );
+    return this.alertService.acknowledgeAlert(
+      alertId,
+      acknowledgeDto.acknowledgedBy
+    );
   }
 
   @Get('alerts/thresholds')
   @ApiOperation({ summary: 'Get current alert thresholds' })
-  @ApiResponse({ status: 200, description: 'Alert thresholds retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Alert thresholds retrieved successfully',
+  })
   async getAlertThresholds(): Promise<AlertThreshold> {
     this.logger.log('Fetching alert thresholds');
     return this.alertService.getAlertThresholds();
@@ -123,24 +182,35 @@ export class NotificationsController {
 
   @Put('alerts/thresholds')
   @ApiOperation({ summary: 'Update alert thresholds' })
-  @ApiResponse({ status: 200, description: 'Alert thresholds updated successfully' })
-  async updateAlertThresholds(@Body() thresholdsDto: UpdateThresholdsDto): Promise<{ message: string }> {
+  @ApiResponse({
+    status: 200,
+    description: 'Alert thresholds updated successfully',
+  })
+  async updateAlertThresholds(
+    @Body() thresholdsDto: UpdateThresholdsDto
+  ): Promise<{ message: string }> {
     this.logger.log('Updating alert thresholds:', thresholdsDto);
-    
+
     await this.alertService.updateAlertThresholds(thresholdsDto);
-    
+
     return { message: 'Alert thresholds updated successfully' };
   }
 
   @Delete('alerts/clear')
   @ApiOperation({ summary: 'Clear old alerts' })
-  @ApiQuery({ name: 'days', required: false, description: 'Number of days to keep (default: 30)' })
+  @ApiQuery({
+    name: 'days',
+    required: false,
+    description: 'Number of days to keep (default: 30)',
+  })
   @ApiResponse({ status: 200, description: 'Old alerts cleared successfully' })
-  async clearOldAlerts(@Query('days') days?: number): Promise<{ message: string; deletedCount: number }> {
+  async clearOldAlerts(
+    @Query('days') days?: number
+  ): Promise<{ message: string; deletedCount: number }> {
     this.logger.log(`Clearing old alerts (keeping ${days || 30} days)`);
-    
+
     const deletedCount = await this.alertService.clearOldAlerts(days || 30);
-    
+
     return {
       message: 'Old alerts cleared successfully',
       deletedCount,
@@ -152,28 +222,36 @@ export class NotificationsController {
   @ApiResponse({ status: 200, description: 'Email sent successfully' })
   async sendEmail(@Body() sendEmailDto: SendEmailDto): Promise<EmailDelivery> {
     this.logger.log(`Sending email to ${sendEmailDto.to}`);
-    
+
     return this.emailService.sendEmail(
       sendEmailDto.to,
       sendEmailDto.subject,
       sendEmailDto.html,
       sendEmailDto.text,
-      sendEmailDto.alertType,
+      sendEmailDto.alertType
     );
   }
 
   @Get('email/delivery/:deliveryId')
   @ApiOperation({ summary: 'Get email delivery status' })
   @ApiParam({ name: 'deliveryId', description: 'Email delivery ID' })
-  @ApiResponse({ status: 200, description: 'Email delivery status retrieved successfully' })
-  async getEmailDeliveryStatus(@Param('deliveryId') deliveryId: string): Promise<EmailDelivery | null> {
+  @ApiResponse({
+    status: 200,
+    description: 'Email delivery status retrieved successfully',
+  })
+  async getEmailDeliveryStatus(
+    @Param('deliveryId') deliveryId: string
+  ): Promise<EmailDelivery | null> {
     this.logger.log(`Fetching email delivery status: ${deliveryId}`);
     return this.emailService.getDeliveryStatus(deliveryId);
   }
 
   @Get('email/stats')
   @ApiOperation({ summary: 'Get email delivery statistics' })
-  @ApiResponse({ status: 200, description: 'Email delivery statistics retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Email delivery statistics retrieved successfully',
+  })
   async getEmailStats(): Promise<{
     total: number;
     sent: number;
@@ -195,35 +273,46 @@ export class NotificationsController {
 
   @Post('alerts/pollution')
   @ApiOperation({ summary: 'Send pollution alert' })
-  @ApiResponse({ status: 200, description: 'Pollution alert sent successfully' })
-  async sendPollutionAlert(@Body() data: {
-    city: string;
-    aqi: number;
-    level: string;
-    pollutant: string;
-  }): Promise<void> {
-    this.logger.log(`Sending pollution alert for ${data.city} (AQI: ${data.aqi})`);
-    
+  @ApiResponse({
+    status: 200,
+    description: 'Pollution alert sent successfully',
+  })
+  async sendPollutionAlert(
+    @Body()
+    data: {
+      city: string;
+      aqi: number;
+      level: string;
+      pollutant: string;
+    }
+  ): Promise<void> {
+    this.logger.log(
+      `Sending pollution alert for ${data.city} (AQI: ${data.aqi})`
+    );
+
     await this.notificationsService.sendAirQualityAlert(
       data.city,
       data.aqi,
-      data.level,
+      data.level
     );
   }
 
   @Post('alerts/daily-summary')
   @ApiOperation({ summary: 'Send daily summary alert' })
   @ApiResponse({ status: 200, description: 'Daily summary sent successfully' })
-  async sendDailySummary(@Body() data: {
-    city: string;
-    date: string;
-    averageAQI: number;
-    maxAQI: number;
-    minAQI: number;
-    dominantPollutant: string;
-    trend: string;
-    unhealthyHours: number;
-  }): Promise<void> {
+  async sendDailySummary(
+    @Body()
+    data: {
+      city: string;
+      date: string;
+      averageAQI: number;
+      maxAQI: number;
+      minAQI: number;
+      dominantPollutant: string;
+      trend: string;
+      unhealthyHours: number;
+    }
+  ): Promise<void> {
     this.logger.log(`Sending daily summary for ${data.city} on ${data.date}`);
     await this.alertService.sendDailySummary(data);
   }
@@ -231,38 +320,52 @@ export class NotificationsController {
   @Post('alerts/weekly-report')
   @ApiOperation({ summary: 'Send weekly report alert' })
   @ApiResponse({ status: 200, description: 'Weekly report sent successfully' })
-  async sendWeeklyReport(@Body() data: {
-    city: string;
-    weekStart: string;
-    weekEnd: string;
-    averageAQI: number;
-    maxAQI: number;
-    unhealthyDays: number;
-    dominantPollutant: string;
-    trend: string;
-    recommendations: string[];
-  }): Promise<void> {
-    this.logger.log(`Sending weekly report for ${data.city} (${data.weekStart} to ${data.weekEnd})`);
+  async sendWeeklyReport(
+    @Body()
+    data: {
+      city: string;
+      weekStart: string;
+      weekEnd: string;
+      averageAQI: number;
+      maxAQI: number;
+      unhealthyDays: number;
+      dominantPollutant: string;
+      trend: string;
+      recommendations: string[];
+    }
+  ): Promise<void> {
+    this.logger.log(
+      `Sending weekly report for ${data.city} (${data.weekStart} to ${data.weekEnd})`
+    );
     await this.alertService.sendWeeklyReport(data);
   }
 
   @Post('alerts/system-health')
   @ApiOperation({ summary: 'Send system health alert' })
-  @ApiResponse({ status: 200, description: 'System health alert sent successfully' })
-  async sendSystemHealthAlert(@Body() data: {
-    timestamp: Date;
-    queueHealth: any[];
-    storageUsage: number;
-    errorRate: number;
-    uptime: number;
-  }): Promise<void> {
+  @ApiResponse({
+    status: 200,
+    description: 'System health alert sent successfully',
+  })
+  async sendSystemHealthAlert(
+    @Body()
+    data: {
+      timestamp: Date;
+      queueHealth: any[];
+      storageUsage: number;
+      errorRate: number;
+      uptime: number;
+    }
+  ): Promise<void> {
     this.logger.log('Sending system health alert');
     await this.alertService.sendSystemHealthAlert(data);
   }
 
   @Get('health')
   @ApiOperation({ summary: 'Get notifications service health status' })
-  @ApiResponse({ status: 200, description: 'Notifications service health status' })
+  @ApiResponse({
+    status: 200,
+    description: 'Notifications service health status',
+  })
   async getHealth(): Promise<{
     status: 'healthy' | 'degraded' | 'unhealthy';
     timestamp: Date;
@@ -280,22 +383,24 @@ export class NotificationsController {
     };
   }> {
     this.logger.log('Checking notifications service health');
-    
+
     const [activeAlerts, emailStats, alertStats] = await Promise.all([
       this.alertService.getActiveAlerts(),
       this.emailService.getDeliveryStats(),
       this.alertService.getAlertStats(),
     ]);
 
-    const emailDeliveryRate = emailStats.total > 0 ? emailStats.sent / emailStats.total : 0;
-    const alertAcknowledgmentRate = alertStats.total > 0 ? alertStats.acknowledged / alertStats.total : 0;
+    const emailDeliveryRate =
+      emailStats.total > 0 ? emailStats.sent / emailStats.total : 0;
+    const alertAcknowledgmentRate =
+      alertStats.total > 0 ? alertStats.acknowledged / alertStats.total : 0;
 
     let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
-    
+
     if (emailDeliveryRate < 0.8 || activeAlerts.length > 10) {
       status = 'degraded';
     }
-    
+
     if (emailDeliveryRate < 0.5 || activeAlerts.length > 50) {
       status = 'unhealthy';
     }
@@ -317,4 +422,4 @@ export class NotificationsController {
       },
     };
   }
-} 
+}

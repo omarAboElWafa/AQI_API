@@ -62,7 +62,13 @@ export interface AirQualityAlert {
   id: string;
   city: string;
   aqi: number;
-  level: 'Good' | 'Moderate' | 'Unhealthy for Sensitive Groups' | 'Unhealthy' | 'Very Unhealthy' | 'Hazardous';
+  level:
+    | 'Good'
+    | 'Moderate'
+    | 'Unhealthy for Sensitive Groups'
+    | 'Unhealthy'
+    | 'Very Unhealthy'
+    | 'Hazardous';
   timestamp: Date;
   isActive: boolean;
-} 
+}

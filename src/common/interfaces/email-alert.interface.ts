@@ -36,7 +36,12 @@ export interface EmailRecipient {
   email: string;
   name?: string;
   preferences?: {
-    alertLevel: 'all' | 'moderate' | 'unhealthy' | 'very_unhealthy' | 'hazardous';
+    alertLevel:
+      | 'all'
+      | 'moderate'
+      | 'unhealthy'
+      | 'very_unhealthy'
+      | 'hazardous';
     frequency: 'immediate' | 'hourly' | 'daily';
     timezone?: string;
   };
@@ -69,9 +74,15 @@ export interface EmailTemplate {
 }
 
 export interface AirQualityAlertThreshold {
-  level: 'Good' | 'Moderate' | 'Unhealthy for Sensitive Groups' | 'Unhealthy' | 'Very Unhealthy' | 'Hazardous';
+  level:
+    | 'Good'
+    | 'Moderate'
+    | 'Unhealthy for Sensitive Groups'
+    | 'Unhealthy'
+    | 'Very Unhealthy'
+    | 'Hazardous';
   minAqi: number;
   maxAqi: number;
   color: string;
   recommendations: string[];
-} 
+}

@@ -1,14 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Inject, CACHE_MANAGER } from '@nestjs/common';
-import { Cache } from 'cache-manager';
+import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectModel } from '@nestjs/mongoose';
+import { Queue } from 'bull';
+import { Model, PipelineStage } from 'mongoose';
 
-import { AirQuality, AirQualityDocument } from '../air-quality/schemas/air-quality.schema';
-import { DailyAggregation, DailyAggregationDocument } from '../analytics/schemas/daily-aggregation.schema';
+import {
+  AirQuality,
+  AirQualityDocument,
+} from '../../air-quality/schemas/air-quality.schema';
+import {
+  DailyAggregation,
+  DailyAggregationDocument,
+} from '../schemas/daily-aggregation.schema';
 
 export interface AnalyticsReport {
   city: string;
@@ -30,7 +35,13 @@ export interface DailyStats {
   maxAQI: number;
   minAQI: number;
   dominantPollutant: string;
-  pollutionLevel: 'Good' | 'Moderate' | 'Unhealthy for Sensitive Groups' | 'Unhealthy' | 'Very Unhealthy' | 'Hazardous';
+  pollutionLevel:
+    | 'Good'
+    | 'Moderate'
+    | 'Unhealthy for Sensitive Groups'
+    | 'Unhealthy'
+    | 'Very Unhealthy'
+    | 'Hazardous';
   hourlyAverages: Array<{
     hour: number;
     averageAQI: number;
@@ -100,22 +111,30 @@ export class AnalyticsService {
 
   constructor(
     @InjectQueue('analytics') private analyticsQueue: Queue,
-    @InjectModel(AirQuality.name) private airQualityModel: Model<AirQualityDocument>,
-    @InjectModel(DailyAggregation.name) private dailyAggregationModel: Model<DailyAggregationDocument>,
+    @InjectModel(AirQuality.name)
+    private airQualityModel: Model<AirQualityDocument>,
+    @InjectModel(DailyAggregation.name)
+    private dailyAggregationModel: Model<DailyAggregationDocument>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
-    private configService: ConfigService,
+    private configService: ConfigService
   ) {}
 
   /**
    * Calculate daily statistics with MongoDB aggregation pipeline
    */
-  async calculateDailyStats(date: string, city: string, country: string): Promise<DailyStats> {
+  async calculateDailyStats(
+    date: string,
+    city: string,
+    country: string
+  ): Promise<DailyStats> {
     const cacheKey = `daily-stats:${city}:${country}:${date}`;
-    
+
     // Try to get from cache first
     const cached = await this.cacheManager.get<DailyStats>(cacheKey);
     if (cached) {
-      this.logger.debug(`Retrieved daily stats from cache for ${city}, ${country} on ${date}`);
+      this.logger.debug(
+        `Retrieved daily stats from cache for ${city}, ${country} on ${date}`
+      );
       return cached;
     }
 
@@ -189,7 +208,9 @@ export class AnalyticsService {
       },
     ];
 
-    const result = await this.airQualityModel.aggregate(pipeline).exec();
+    const result = await this.airQualityModel
+      .aggregate(pipeline as PipelineStage[])
+      .exec();
 
     if (result.length === 0 || result[0].dailyStats.length === 0) {
       throw new Error(`No data available for ${city}, ${country} on ${date}`);
@@ -200,11 +221,14 @@ export class AnalyticsService {
     const presentHours = result[0].missingHours.map(h => h._id);
 
     // Calculate missing hours (0-23)
-    const missingHours = Array.from({ length: 24 }, (_, i) => i)
-      .filter(hour => !presentHours.includes(hour));
+    const missingHours = Array.from({ length: 24 }, (_, i) => i).filter(
+      hour => !presentHours.includes(hour)
+    );
 
     // Find dominant pollutant for the day
-    const dominantPollutant = this.findDominantPollutant(dailyStats.dominantPollutant);
+    const dominantPollutant = this.findDominantPollutant(
+      dailyStats.dominantPollutant
+    );
 
     // Determine pollution level
     const pollutionLevel = this.getPollutionLevel(dailyStats.averageAQI);
@@ -243,7 +267,10 @@ export class AnalyticsService {
   /**
    * Update current day statistics in real-time
    */
-  async updateCurrentDayStats(city: string, country: string): Promise<DailyStats> {
+  async updateCurrentDayStats(
+    city: string,
+    country: string
+  ): Promise<DailyStats> {
     const today = new Date().toISOString().split('T')[0];
     return this.calculateDailyStats(today, city, country);
   }
@@ -251,9 +278,13 @@ export class AnalyticsService {
   /**
    * Get most polluted time with detailed analysis
    */
-  async getMostPollutedTime(city: string, country: string, days: number = 7): Promise<MostPollutedTime> {
+  async getMostPollutedTime(
+    city: string,
+    country: string,
+    days: number = 7
+  ): Promise<MostPollutedTime> {
     const cacheKey = `most-polluted-time:${city}:${country}:${days}`;
-    
+
     const cached = await this.cacheManager.get<MostPollutedTime>(cacheKey);
     if (cached) {
       return cached;
@@ -297,10 +328,14 @@ export class AnalyticsService {
       },
     ];
 
-    const result = await this.airQualityModel.aggregate(pipeline).exec();
+    const result = await this.airQualityModel
+      .aggregate(pipeline as PipelineStage[])
+      .exec();
 
     if (result.length === 0) {
-      throw new Error(`No data available for ${city}, ${country} in the last ${days} days`);
+      throw new Error(
+        `No data available for ${city}, ${country} in the last ${days} days`
+      );
     }
 
     const mostPolluted = result[0];
@@ -313,16 +348,24 @@ export class AnalyticsService {
       weather: mostPolluted.weather,
     };
 
-    await this.cacheManager.set(cacheKey, mostPollutedTime, this.cacheTTL.mostPollutedTime);
+    await this.cacheManager.set(
+      cacheKey,
+      mostPollutedTime,
+      this.cacheTTL.mostPollutedTime
+    );
     return mostPollutedTime;
   }
 
   /**
    * Get historical trends for multiple days
    */
-  async getHistoricalTrends(city: string, country: string, days: number = 30): Promise<HistoricalTrend[]> {
+  async getHistoricalTrends(
+    city: string,
+    country: string,
+    days: number = 30
+  ): Promise<HistoricalTrend[]> {
     const cacheKey = `historical-trends:${city}:${country}:${days}`;
-    
+
     const cached = await this.cacheManager.get<HistoricalTrend[]>(cacheKey);
     if (cached) {
       return cached;
@@ -373,7 +416,9 @@ export class AnalyticsService {
       },
     ];
 
-    const results = await this.airQualityModel.aggregate(pipeline).exec();
+    const results = await this.airQualityModel
+      .aggregate(pipeline as PipelineStage[])
+      .exec();
 
     const trends: HistoricalTrend[] = results.map(result => ({
       date: result.date,
@@ -384,16 +429,24 @@ export class AnalyticsService {
       recordCount: result.recordCount,
     }));
 
-    await this.cacheManager.set(cacheKey, trends, this.cacheTTL.historicalTrends);
+    await this.cacheManager.set(
+      cacheKey,
+      trends,
+      this.cacheTTL.historicalTrends
+    );
     return trends;
   }
 
   /**
    * Get pollution patterns (weekly/monthly analysis)
    */
-  async getPollutionPatterns(city: string, country: string, period: 'weekly' | 'monthly' = 'weekly'): Promise<PollutionPattern[]> {
+  async getPollutionPatterns(
+    city: string,
+    country: string,
+    period: 'weekly' | 'monthly' = 'weekly'
+  ): Promise<PollutionPattern[]> {
     const cacheKey = `pollution-patterns:${city}:${country}:${period}`;
-    
+
     const cached = await this.cacheManager.get<PollutionPattern[]>(cacheKey);
     if (cached) {
       return cached;
@@ -423,10 +476,22 @@ export class AnalyticsService {
               $switch: {
                 branches: [
                   { case: { $lte: ['$pollution.aqius', 50] }, then: 'Good' },
-                  { case: { $lte: ['$pollution.aqius', 100] }, then: 'Moderate' },
-                  { case: { $lte: ['$pollution.aqius', 150] }, then: 'Unhealthy for Sensitive Groups' },
-                  { case: { $lte: ['$pollution.aqius', 200] }, then: 'Unhealthy' },
-                  { case: { $lte: ['$pollution.aqius', 300] }, then: 'Very Unhealthy' },
+                  {
+                    case: { $lte: ['$pollution.aqius', 100] },
+                    then: 'Moderate',
+                  },
+                  {
+                    case: { $lte: ['$pollution.aqius', 150] },
+                    then: 'Unhealthy for Sensitive Groups',
+                  },
+                  {
+                    case: { $lte: ['$pollution.aqius', 200] },
+                    then: 'Unhealthy',
+                  },
+                  {
+                    case: { $lte: ['$pollution.aqius', 300] },
+                    then: 'Very Unhealthy',
+                  },
                 ],
                 default: 'Hazardous',
               },
@@ -455,10 +520,7 @@ export class AnalyticsService {
       {
         $project: {
           timeSlot: {
-            $concat: [
-              { $toString: '$_id.hour' },
-              ':00',
-            ],
+            $concat: [{ $toString: '$_id.hour' }, ':00'],
           },
           averageAQI: { $round: ['$averageAQI', 2] },
           frequency: 1,
@@ -468,7 +530,9 @@ export class AnalyticsService {
       },
     ];
 
-    const results = await this.airQualityModel.aggregate(pipeline).exec();
+    const results = await this.airQualityModel
+      .aggregate(pipeline as PipelineStage[])
+      .exec();
 
     const patterns: PollutionPattern[] = results.map(result => ({
       timeSlot: result.timeSlot,
@@ -478,16 +542,24 @@ export class AnalyticsService {
       pollutionLevel: result.pollutionLevel,
     }));
 
-    await this.cacheManager.set(cacheKey, patterns, this.cacheTTL.pollutionPatterns);
+    await this.cacheManager.set(
+      cacheKey,
+      patterns,
+      this.cacheTTL.pollutionPatterns
+    );
     return patterns;
   }
 
   /**
    * Get hourly statistics for a specific day
    */
-  async getHourlyStats(date: string, city: string, country: string): Promise<HourlyStats[]> {
+  async getHourlyStats(
+    date: string,
+    city: string,
+    country: string
+  ): Promise<HourlyStats[]> {
     const cacheKey = `hourly-stats:${city}:${country}:${date}`;
-    
+
     const cached = await this.cacheManager.get<HourlyStats[]>(cacheKey);
     if (cached) {
       return cached;
@@ -543,7 +615,9 @@ export class AnalyticsService {
       },
     ];
 
-    const results = await this.airQualityModel.aggregate(pipeline).exec();
+    const results = await this.airQualityModel
+      .aggregate(pipeline as PipelineStage[])
+      .exec();
 
     const hourlyStats: HourlyStats[] = results.map(result => ({
       hour: result.hour,
@@ -555,14 +629,22 @@ export class AnalyticsService {
       weatherAverage: result.weatherAverage,
     }));
 
-    await this.cacheManager.set(cacheKey, hourlyStats, this.cacheTTL.hourlyStats);
+    await this.cacheManager.set(
+      cacheKey,
+      hourlyStats,
+      this.cacheTTL.hourlyStats
+    );
     return hourlyStats;
   }
 
   /**
    * Generate comprehensive analytics report
    */
-  async generateComprehensiveReport(city: string, country: string, days: number = 7): Promise<{
+  async generateComprehensiveReport(
+    city: string,
+    country: string,
+    days: number = 7
+  ): Promise<{
     dailyStats: DailyStats;
     mostPollutedTime: MostPollutedTime;
     historicalTrends: HistoricalTrend[];
@@ -577,16 +659,21 @@ export class AnalyticsService {
   }> {
     const today = new Date().toISOString().split('T')[0];
 
-    const [dailyStats, mostPollutedTime, historicalTrends, pollutionPatterns] = await Promise.all([
-      this.calculateDailyStats(today, city, country),
-      this.getMostPollutedTime(city, country, days),
-      this.getHistoricalTrends(city, country, days),
-      this.getPollutionPatterns(city, country, 'weekly'),
-    ]);
+    const [dailyStats, mostPollutedTime, historicalTrends, pollutionPatterns] =
+      await Promise.all([
+        this.calculateDailyStats(today, city, country),
+        this.getMostPollutedTime(city, country, days),
+        this.getHistoricalTrends(city, country, days),
+        this.getPollutionPatterns(city, country, 'weekly'),
+      ]);
 
     // Calculate summary statistics
-    const averageAQI = historicalTrends.reduce((sum, trend) => sum + trend.averageAQI, 0) / historicalTrends.length;
-    const unhealthyDays = historicalTrends.filter(trend => trend.averageAQI > 100).length;
+    const averageAQI =
+      historicalTrends.reduce((sum, trend) => sum + trend.averageAQI, 0) /
+      historicalTrends.length;
+    const unhealthyDays = historicalTrends.filter(
+      trend => trend.averageAQI > 100
+    ).length;
     const trend = this.calculateTrendFromHistorical(historicalTrends);
 
     const summary = {
@@ -609,7 +696,11 @@ export class AnalyticsService {
   /**
    * Invalidate cache for specific data
    */
-  async invalidateCache(city: string, country: string, date?: string): Promise<void> {
+  async invalidateCache(
+    city: string,
+    country: string,
+    date?: string
+  ): Promise<void> {
     const patterns = [
       `daily-stats:${city}:${country}:*`,
       `hourly-stats:${city}:${country}:*`,
@@ -658,19 +749,26 @@ export class AnalyticsService {
    */
   private findDominantPollutant(pollutants: string[]): string {
     const frequency: Record<string, number> = {};
-    
+
     pollutants.forEach(pollutant => {
       frequency[pollutant] = (frequency[pollutant] || 0) + 1;
     });
 
-    return Object.entries(frequency)
-      .sort(([, a], [, b]) => b - a)[0][0];
+    return Object.entries(frequency).sort(([, a], [, b]) => b - a)[0][0];
   }
 
   /**
    * Get pollution level based on AQI
    */
-  private getPollutionLevel(aqi: number): 'Good' | 'Moderate' | 'Unhealthy for Sensitive Groups' | 'Unhealthy' | 'Very Unhealthy' | 'Hazardous' {
+  private getPollutionLevel(
+    aqi: number
+  ):
+    | 'Good'
+    | 'Moderate'
+    | 'Unhealthy for Sensitive Groups'
+    | 'Unhealthy'
+    | 'Very Unhealthy'
+    | 'Hazardous' {
     if (aqi <= 50) return 'Good';
     if (aqi <= 100) return 'Moderate';
     if (aqi <= 150) return 'Unhealthy for Sensitive Groups';
@@ -682,14 +780,18 @@ export class AnalyticsService {
   /**
    * Calculate trend from historical data
    */
-  private calculateTrendFromHistorical(trends: HistoricalTrend[]): 'improving' | 'worsening' | 'stable' {
+  private calculateTrendFromHistorical(
+    trends: HistoricalTrend[]
+  ): 'improving' | 'worsening' | 'stable' {
     if (trends.length < 3) return 'stable';
 
     const recent = trends.slice(-3);
     const older = trends.slice(0, 3);
 
-    const recentAvg = recent.reduce((sum, t) => sum + t.averageAQI, 0) / recent.length;
-    const olderAvg = older.reduce((sum, t) => sum + t.averageAQI, 0) / older.length;
+    const recentAvg =
+      recent.reduce((sum, t) => sum + t.averageAQI, 0) / recent.length;
+    const olderAvg =
+      older.reduce((sum, t) => sum + t.averageAQI, 0) / older.length;
 
     const difference = recentAvg - olderAvg;
     const threshold = 5;
@@ -702,10 +804,13 @@ export class AnalyticsService {
   /**
    * Legacy methods for backward compatibility
    */
-  async generateDailyReport(city: string, country: string): Promise<AnalyticsReport> {
+  async generateDailyReport(
+    city: string,
+    country: string
+  ): Promise<AnalyticsReport> {
     const today = new Date().toISOString().split('T')[0];
     const dailyStats = await this.calculateDailyStats(today, city, country);
-    
+
     return {
       city: dailyStats.city,
       country: dailyStats.country,
@@ -719,15 +824,21 @@ export class AnalyticsService {
     };
   }
 
-  async generateWeeklyReport(city: string, country: string): Promise<AnalyticsReport> {
+  async generateWeeklyReport(
+    city: string,
+    country: string
+  ): Promise<AnalyticsReport> {
     const trends = await this.getHistoricalTrends(city, country, 7);
-    
+
     if (trends.length === 0) {
-      throw new Error(`No data available for ${city}, ${country} in the last week`);
+      throw new Error(
+        `No data available for ${city}, ${country} in the last week`
+      );
     }
 
     const aqiValues = trends.map(t => t.averageAQI);
-    const averageAQI = aqiValues.reduce((sum, aqi) => sum + aqi, 0) / aqiValues.length;
+    const averageAQI =
+      aqiValues.reduce((sum, aqi) => sum + aqi, 0) / aqiValues.length;
     const maxAQI = Math.max(...aqiValues);
     const minAQI = Math.min(...aqiValues);
     const unhealthyDays = aqiValues.filter(aqi => aqi > 100).length;
@@ -745,7 +856,9 @@ export class AnalyticsService {
     };
   }
 
-  async getTopCitiesByAQI(limit: number = 10): Promise<Array<{ city: string; country: string; averageAQI: number }>> {
+  async getTopCitiesByAQI(
+    limit: number = 10
+  ): Promise<Array<{ city: string; country: string; averageAQI: number }>> {
     const pipeline = [
       {
         $group: {
@@ -774,10 +887,16 @@ export class AnalyticsService {
       },
     ];
 
-    return await this.airQualityModel.aggregate(pipeline).exec();
+    return await this.airQualityModel
+      .aggregate(pipeline as PipelineStage[])
+      .exec();
   }
 
-  async addAnalyticsJob(city: string, country: string, reportType: 'daily' | 'weekly'): Promise<void> {
+  async addAnalyticsJob(
+    city: string,
+    country: string,
+    reportType: 'daily' | 'weekly'
+  ): Promise<void> {
     await this.analyticsQueue.add('generate-report', {
       city,
       country,
@@ -785,14 +904,18 @@ export class AnalyticsService {
     });
   }
 
-  private calculateTrend(aqiValues: number[]): 'improving' | 'worsening' | 'stable' {
+  private calculateTrend(
+    aqiValues: number[]
+  ): 'improving' | 'worsening' | 'stable' {
     if (aqiValues.length < 2) return 'stable';
 
     const firstHalf = aqiValues.slice(0, Math.floor(aqiValues.length / 2));
     const secondHalf = aqiValues.slice(Math.floor(aqiValues.length / 2));
 
-    const firstAvg = firstHalf.reduce((sum, aqi) => sum + aqi, 0) / firstHalf.length;
-    const secondAvg = secondHalf.reduce((sum, aqi) => sum + aqi, 0) / secondHalf.length;
+    const firstAvg =
+      firstHalf.reduce((sum, aqi) => sum + aqi, 0) / firstHalf.length;
+    const secondAvg =
+      secondHalf.reduce((sum, aqi) => sum + aqi, 0) / secondHalf.length;
 
     const difference = secondAvg - firstAvg;
     const threshold = 5;
@@ -801,4 +924,27 @@ export class AnalyticsService {
     if (difference < -threshold) return 'improving';
     return 'stable';
   }
-} 
+
+  async getDailySummary(
+    date: string,
+    city: string,
+    country: string
+  ): Promise<DailyStats> {
+    return this.calculateDailyStats(date, city, country);
+  }
+
+  async getHourlyAverages(
+    date: string,
+    city: string,
+    country: string
+  ): Promise<HourlyStats[]> {
+    return this.getHourlyStats(date, city, country);
+  }
+
+  async getWeeklyTrends(
+    city: string,
+    country: string
+  ): Promise<HistoricalTrend[]> {
+    return this.getHistoricalTrends(city, country, 7);
+  }
+}

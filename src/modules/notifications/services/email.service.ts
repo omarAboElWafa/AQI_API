@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
-import { Inject, CACHE_MANAGER } from '@nestjs/common';
-import { Cache } from 'cache-manager';
+import { Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from '@nestjs/cache-manager';
 
 export interface EmailTemplate {
   subject: string;
@@ -64,7 +65,7 @@ export class EmailService {
 
   constructor(
     private configService: ConfigService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {
     this.initializeTransporter();
   }
@@ -74,14 +75,16 @@ export class EmailService {
    */
   private initializeTransporter(): void {
     const emailConfig = this.configService.get<EmailConfig>('email');
-    
+
     if (!emailConfig?.smtp?.host) {
-      this.logger.warn('SMTP configuration not found, email service will be disabled');
+      this.logger.warn(
+        'SMTP configuration not found, email service will be disabled'
+      );
       return;
     }
 
     try {
-      this.transporter = nodemailer.createTransporter({
+      this.transporter = nodemailer.createTransport({
         host: emailConfig.smtp.host,
         port: emailConfig.smtp.port,
         secure: emailConfig.smtp.secure,
@@ -109,7 +112,7 @@ export class EmailService {
     subject: string,
     html: string,
     text?: string,
-    alertType?: AlertType,
+    alertType?: AlertType
   ): Promise<EmailDelivery> {
     const deliveryId = this.generateDeliveryId();
     const delivery: EmailDelivery = {
@@ -146,9 +149,16 @@ export class EmailService {
   /**
    * Send email with retry logic
    */
-  private async sendEmailWithRetry(delivery: EmailDelivery, html: string, text?: string): Promise<void> {
+  private async sendEmailWithRetry(
+    delivery: EmailDelivery,
+    html: string,
+    text?: string
+  ): Promise<void> {
     const maxAttempts = delivery.maxAttempts;
-    const retryDelay = this.configService.get('email.rateLimit.retryDelay', 5000);
+    const retryDelay = this.configService.get(
+      'email.rateLimit.retryDelay',
+      5000
+    );
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
@@ -165,12 +175,16 @@ export class EmailService {
 
         delivery.status = 'sent';
         delivery.sentAt = new Date();
-        this.logger.log(`Email sent successfully to ${delivery.to} (attempt ${attempt})`);
+        this.logger.log(
+          `Email sent successfully to ${delivery.to} (attempt ${attempt})`
+        );
         return;
-
       } catch (error) {
-        this.logger.error(`Email send attempt ${attempt} failed for ${delivery.to}:`, error);
-        
+        this.logger.error(
+          `Email send attempt ${attempt} failed for ${delivery.to}:`,
+          error
+        );
+
         if (attempt === maxAttempts) {
           delivery.status = 'failed';
           delivery.error = error.message;
@@ -239,7 +253,11 @@ export class EmailService {
     let count = 0;
 
     for (const delivery of this.deliveryTracking.values()) {
-      if (delivery.to === recipient && delivery.sentAt && delivery.sentAt > oneDayAgo) {
+      if (
+        delivery.to === recipient &&
+        delivery.sentAt &&
+        delivery.sentAt > oneDayAgo
+      ) {
         count++;
       }
     }
@@ -276,8 +294,13 @@ export class EmailService {
     timestamp: Date;
     severity: 'high' | 'medium' | 'low';
   }): EmailTemplate {
-    const color = data.severity === 'high' ? '#ff0000' : data.severity === 'medium' ? '#ff7e00' : '#ffff00';
-    
+    const color =
+      data.severity === 'high'
+        ? '#ff0000'
+        : data.severity === 'medium'
+          ? '#ff7e00'
+          : '#ffff00';
+
     return {
       subject: `🚨 Critical Alert - ${data.component}`,
       html: `
@@ -318,7 +341,7 @@ export class EmailService {
   }): EmailTemplate {
     const color = this.getPollutionLevelColor(data.level);
     const recommendations = this.getPollutionRecommendations(data.level);
-    
+
     return {
       subject: `⚠️ Air Quality Alert - ${data.city} (AQI: ${data.aqi})`,
       html: `
@@ -404,8 +427,13 @@ export class EmailService {
     errorRate: number;
     uptime: number;
   }): EmailTemplate {
-    const healthColor = data.errorRate < 0.05 ? '#00e400' : data.errorRate < 0.1 ? '#ffff00' : '#ff0000';
-    
+    const healthColor =
+      data.errorRate < 0.05
+        ? '#00e400'
+        : data.errorRate < 0.1
+          ? '#ffff00'
+          : '#ff0000';
+
     return {
       subject: `🔧 System Health Report - ${data.timestamp.toLocaleDateString()}`,
       html: `
@@ -419,12 +447,16 @@ export class EmailService {
           </div>
           <div style="margin-top: 20px;">
             <h3>Queue Health Status:</h3>
-            ${data.queueHealth.map(queue => `
+            ${data.queueHealth
+              .map(
+                queue => `
               <div style="background-color: #e8f4fd; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
                 <h4>${queue.name}</h4>
                 <p>Waiting: ${queue.waiting} | Active: ${queue.active} | Failed: ${queue.failed}</p>
               </div>
-            `).join('')}
+            `
+              )
+              .join('')}
           </div>
         </div>
       `,
@@ -491,13 +523,20 @@ export class EmailService {
    */
   private getPollutionLevelColor(level: string): string {
     switch (level) {
-      case 'Good': return '#00e400';
-      case 'Moderate': return '#ffff00';
-      case 'Unhealthy for Sensitive Groups': return '#ff7e00';
-      case 'Unhealthy': return '#ff0000';
-      case 'Very Unhealthy': return '#8f3f97';
-      case 'Hazardous': return '#7e0023';
-      default: return '#666666';
+      case 'Good':
+        return '#00e400';
+      case 'Moderate':
+        return '#ffff00';
+      case 'Unhealthy for Sensitive Groups':
+        return '#ff7e00';
+      case 'Unhealthy':
+        return '#ff0000';
+      case 'Very Unhealthy':
+        return '#8f3f97';
+      case 'Hazardous':
+        return '#7e0023';
+      default:
+        return '#666666';
     }
   }
 
@@ -563,4 +602,4 @@ export class EmailService {
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
-} 
+}

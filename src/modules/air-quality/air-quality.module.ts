@@ -11,7 +11,10 @@ import { AirQualityProcessor } from './air-quality.processor';
 import { IQAirApiService } from './services/iqair-api.service';
 import { CronService } from './services/cron.service';
 import { AirQuality, AirQualitySchema } from './schemas/air-quality.schema';
-import { AirQualityHot, AirQualityHotSchema } from '../database/schemas/air-quality-hot.schema';
+import {
+  AirQualityHot,
+  AirQualityHotSchema,
+} from '../database/schemas/air-quality-hot.schema';
 import { QueueModule } from '../queue/queue.module';
 import { AnalyticsModule } from '../analytics/analytics.module';
 
@@ -36,7 +39,12 @@ import { AnalyticsModule } from '../analytics/analytics.module';
     AnalyticsModule,
   ],
   controllers: [AirQualityController, CronController],
-  providers: [AirQualityService, AirQualityProcessor, IQAirApiService, CronService],
+  providers: [
+    AirQualityService,
+    AirQualityProcessor,
+    IQAirApiService,
+    CronService,
+  ],
   exports: [AirQualityService, IQAirApiService, CronService],
 })
-export class AirQualityModule {} 
+export class AirQualityModule {}

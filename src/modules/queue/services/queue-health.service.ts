@@ -1,9 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue, Job } from 'bull';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
-import { Inject } from '@nestjs/common';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 
 export interface QueueHealthMetrics {
   queueName: string;
@@ -23,7 +21,11 @@ export interface QueueHealthMetrics {
 export interface QueueBottleneck {
   queueName: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
-  type: 'high_wait_time' | 'high_failure_rate' | 'slow_processing' | 'queue_backlog';
+  type:
+    | 'high_wait_time'
+    | 'high_failure_rate'
+    | 'slow_processing'
+    | 'queue_backlog';
   description: string;
   metrics: {
     waitingJobs: number;
@@ -44,7 +46,7 @@ export class QueueHealthService {
     @InjectQueue('air-quality') private airQualityQueue: Queue,
     @InjectQueue('analytics') private analyticsQueue: Queue,
     @InjectQueue('notifications') private notificationsQueue: Queue,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {
     this.initializeHealthMonitoring();
   }
@@ -99,7 +101,10 @@ export class QueueHealthService {
   /**
    * Get queue processing statistics
    */
-  async getProcessingStats(queueName: string, timeWindow: number = 3600000): Promise<{
+  async getProcessingStats(
+    queueName: string,
+    timeWindow: number = 3600000
+  ): Promise<{
     averageProcessingTime: number;
     processingRate: number;
     throughput: number;
@@ -120,11 +125,11 @@ export class QueueHealthService {
     ]);
 
     // Filter jobs by time window
-    const recentCompleted = completedJobs.filter(job => 
-      job.finishedOn && job.finishedOn >= windowStart
+    const recentCompleted = completedJobs.filter(
+      job => job.finishedOn && job.finishedOn >= windowStart
     );
-    const recentFailed = failedJobs.filter(job => 
-      job.finishedOn && job.finishedOn >= windowStart
+    const recentFailed = failedJobs.filter(
+      job => job.finishedOn && job.finishedOn >= windowStart
     );
 
     // Calculate metrics
@@ -133,16 +138,20 @@ export class QueueHealthService {
       .filter(job => job.processedOn && job.finishedOn)
       .map(job => job.finishedOn! - job.processedOn!);
 
-    const averageProcessingTime = processingTimes.length > 0
-      ? processingTimes.reduce((sum, time) => sum + time, 0) / processingTimes.length
-      : 0;
+    const averageProcessingTime =
+      processingTimes.length > 0
+        ? processingTimes.reduce((sum, time) => sum + time, 0) /
+          processingTimes.length
+        : 0;
 
-    const processingRate = totalProcessed > 0
-      ? (totalProcessed / (timeWindow / 60000)) // jobs per minute
-      : 0;
+    const processingRate =
+      totalProcessed > 0
+        ? totalProcessed / (timeWindow / 60000) // jobs per minute
+        : 0;
 
     const throughput = recentCompleted.length;
-    const failureRate = totalProcessed > 0 ? recentFailed.length / totalProcessed : 0;
+    const failureRate =
+      totalProcessed > 0 ? recentFailed.length / totalProcessed : 0;
 
     return {
       averageProcessingTime,
@@ -158,11 +167,15 @@ export class QueueHealthService {
   async monitorAndAlert(): Promise<void> {
     try {
       const bottlenecks = await this.detectBottlenecks();
-      const criticalBottlenecks = bottlenecks.filter(b => b.severity === 'critical' || b.severity === 'high');
+      const criticalBottlenecks = bottlenecks.filter(
+        b => b.severity === 'critical' || b.severity === 'high'
+      );
 
       if (criticalBottlenecks.length > 0) {
-        this.logger.warn(`Detected ${criticalBottlenecks.length} critical queue bottlenecks`);
-        
+        this.logger.warn(
+          `Detected ${criticalBottlenecks.length} critical queue bottlenecks`
+        );
+
         // Cache alert information
         await this.cacheManager.set(
           'queue-health-alerts',
@@ -172,18 +185,20 @@ export class QueueHealthService {
 
         // Log each critical bottleneck
         for (const bottleneck of criticalBottlenecks) {
-          this.logger.warn(`Queue ${bottleneck.queueName}: ${bottleneck.description}`, {
-            severity: bottleneck.severity,
-            type: bottleneck.type,
-            recommendations: bottleneck.recommendations,
-          });
+          this.logger.warn(
+            `Queue ${bottleneck.queueName}: ${bottleneck.description}`,
+            {
+              severity: bottleneck.severity,
+              type: bottleneck.type,
+              recommendations: bottleneck.recommendations,
+            }
+          );
         }
       }
 
       // Update cached health metrics
       const allHealth = await this.getAllQueueHealth();
       await this.cacheManager.set('queue-health-metrics', allHealth, 60); // 1 minute
-
     } catch (error) {
       this.logger.error('Error during queue health monitoring:', error);
     }
@@ -197,27 +212,41 @@ export class QueueHealthService {
     const recommendations: string[] = [];
 
     if (health.healthScore < 0.5) {
-      recommendations.push('Queue health is critical - immediate attention required');
+      recommendations.push(
+        'Queue health is critical - immediate attention required'
+      );
     }
 
     if (health.failureRate > 0.1) {
-      recommendations.push('High failure rate detected - check job processors and error handling');
+      recommendations.push(
+        'High failure rate detected - check job processors and error handling'
+      );
     }
 
     if (health.waitingJobs > 100) {
-      recommendations.push('High queue backlog - consider scaling workers or optimizing job processing');
+      recommendations.push(
+        'High queue backlog - consider scaling workers or optimizing job processing'
+      );
     }
 
-    if (health.averageProcessingTime > 30000) { // 30 seconds
-      recommendations.push('Slow job processing detected - optimize job logic or increase resources');
+    if (health.averageProcessingTime > 30000) {
+      // 30 seconds
+      recommendations.push(
+        'Slow job processing detected - optimize job logic or increase resources'
+      );
     }
 
-    if (health.processingRate < 10) { // Less than 10 jobs per minute
-      recommendations.push('Low throughput detected - review worker configuration and concurrency settings');
+    if (health.processingRate < 10) {
+      // Less than 10 jobs per minute
+      recommendations.push(
+        'Low throughput detected - review worker configuration and concurrency settings'
+      );
     }
 
     if (recommendations.length === 0) {
-      recommendations.push('Queue is performing well - no immediate action required');
+      recommendations.push(
+        'Queue is performing well - no immediate action required'
+      );
     }
 
     return recommendations;
@@ -245,11 +274,12 @@ export class QueueHealthService {
     }
 
     const healthScoreChange = current.healthScore - cached.healthScore;
-    const processingTimeChange = current.averageProcessingTime - cached.averageProcessingTime;
+    const processingTimeChange =
+      current.averageProcessingTime - cached.averageProcessingTime;
     const throughputChange = current.processingRate - cached.processingRate;
 
     let trend: 'improving' | 'degrading' | 'stable' = 'stable';
-    
+
     if (healthScoreChange > 0.1 && throughputChange > 0) {
       trend = 'improving';
     } else if (healthScoreChange < -0.1 || processingTimeChange > 5000) {
@@ -264,7 +294,10 @@ export class QueueHealthService {
     };
   }
 
-  private async calculateQueueHealth(queue: Queue, queueName: string): Promise<QueueHealthMetrics> {
+  private async calculateQueueHealth(
+    queue: Queue,
+    queueName: string
+  ): Promise<QueueHealthMetrics> {
     const [waiting, active, completed, failed, delayed] = await Promise.all([
       queue.getWaiting(),
       queue.getActive(),
@@ -273,23 +306,30 @@ export class QueueHealthService {
       queue.getDelayed(),
     ]);
 
-    const totalJobs = waiting.length + active.length + completed.length + failed.length;
+    const totalJobs =
+      waiting.length + active.length + completed.length + failed.length;
     const stats = await this.getProcessingStats(queueName);
-    
+
     // Calculate health score (0-1)
     let healthScore = 1.0;
     const issues: string[] = [];
 
     // Penalize high failure rate
-    if (stats.failureRate > 0.05) { // > 5%
+    if (stats.failureRate > 0.05) {
+      // > 5%
       healthScore -= stats.failureRate * 0.5;
-      issues.push(`High failure rate: ${(stats.failureRate * 100).toFixed(1)}%`);
+      issues.push(
+        `High failure rate: ${(stats.failureRate * 100).toFixed(1)}%`
+      );
     }
 
     // Penalize slow processing
-    if (stats.averageProcessingTime > 10000) { // > 10 seconds
+    if (stats.averageProcessingTime > 10000) {
+      // > 10 seconds
       healthScore -= 0.2;
-      issues.push(`Slow processing: ${(stats.averageProcessingTime / 1000).toFixed(1)}s average`);
+      issues.push(
+        `Slow processing: ${(stats.averageProcessingTime / 1000).toFixed(1)}s average`
+      );
     }
 
     // Penalize high queue backlog
@@ -299,9 +339,12 @@ export class QueueHealthService {
     }
 
     // Penalize low throughput
-    if (stats.processingRate < 5) { // < 5 jobs per minute
+    if (stats.processingRate < 5) {
+      // < 5 jobs per minute
       healthScore -= 0.2;
-      issues.push(`Low throughput: ${stats.processingRate.toFixed(1)} jobs/min`);
+      issues.push(
+        `Low throughput: ${stats.processingRate.toFixed(1)} jobs/min`
+      );
     }
 
     healthScore = Math.max(0, Math.min(1, healthScore));
@@ -327,14 +370,21 @@ export class QueueHealthService {
     return metrics;
   }
 
-  private analyzeQueueBottlenecks(health: QueueHealthMetrics): QueueBottleneck[] {
+  private analyzeQueueBottlenecks(
+    health: QueueHealthMetrics
+  ): QueueBottleneck[] {
     const bottlenecks: QueueBottleneck[] = [];
 
     // High wait time bottleneck
     if (health.waitingJobs > 100) {
       bottlenecks.push({
         queueName: health.queueName,
-        severity: health.waitingJobs > 500 ? 'critical' : health.waitingJobs > 200 ? 'high' : 'medium',
+        severity:
+          health.waitingJobs > 500
+            ? 'critical'
+            : health.waitingJobs > 200
+              ? 'high'
+              : 'medium',
         type: 'queue_backlog',
         description: `Queue has ${health.waitingJobs} waiting jobs`,
         metrics: {
@@ -356,7 +406,12 @@ export class QueueHealthService {
     if (health.failureRate > 0.1) {
       bottlenecks.push({
         queueName: health.queueName,
-        severity: health.failureRate > 0.25 ? 'critical' : health.failureRate > 0.15 ? 'high' : 'medium',
+        severity:
+          health.failureRate > 0.25
+            ? 'critical'
+            : health.failureRate > 0.15
+              ? 'high'
+              : 'medium',
         type: 'high_failure_rate',
         description: `Queue has ${(health.failureRate * 100).toFixed(1)}% failure rate`,
         metrics: {
@@ -375,10 +430,16 @@ export class QueueHealthService {
     }
 
     // Slow processing bottleneck
-    if (health.averageProcessingTime > 30000) { // 30 seconds
+    if (health.averageProcessingTime > 30000) {
+      // 30 seconds
       bottlenecks.push({
         queueName: health.queueName,
-        severity: health.averageProcessingTime > 120000 ? 'critical' : health.averageProcessingTime > 60000 ? 'high' : 'medium',
+        severity:
+          health.averageProcessingTime > 120000
+            ? 'critical'
+            : health.averageProcessingTime > 60000
+              ? 'high'
+              : 'medium',
         type: 'slow_processing',
         description: `Average job processing time is ${(health.averageProcessingTime / 1000).toFixed(1)} seconds`,
         metrics: {
@@ -420,4 +481,4 @@ export class QueueHealthService {
 
     this.logger.log('Queue health monitoring initialized');
   }
-} 
+}

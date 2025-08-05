@@ -4,7 +4,10 @@ import { Model } from 'mongoose';
 import { Queue } from 'bull';
 import { getQueueToken } from '@nestjs/bull';
 import { AirQualityProcessor } from '../../src/modules/air-quality/processors/air-quality.processor';
-import { AirQuality, AirQualityDocument } from '../../src/modules/air-quality/schemas/air-quality.schema';
+import {
+  AirQuality,
+  AirQualityDocument,
+} from '../../src/modules/air-quality/schemas/air-quality.schema';
 import { IQAirApiService } from '../../src/modules/air-quality/services/iqair-api.service';
 import { ConfigService } from '@nestjs/config';
 
@@ -61,7 +64,9 @@ describe('Queue Job Processing Integration', () => {
     }).compile();
 
     processor = module.get<AirQualityProcessor>(AirQualityProcessor);
-    airQualityModel = module.get<Model<AirQualityDocument>>(getModelToken(AirQuality.name));
+    airQualityModel = module.get<Model<AirQualityDocument>>(
+      getModelToken(AirQuality.name)
+    );
     iqairApiService = module.get<IQAirApiService>(IQAirApiService);
     airQualityQueue = module.get<Queue>(getQueueToken('air-quality'));
   });
@@ -132,7 +137,9 @@ describe('Queue Job Processing Integration', () => {
         updatedAt: new Date(),
       };
 
-      mockIQAirApiService.fetchCityAirQuality.mockResolvedValue(mockApiResponse);
+      mockIQAirApiService.fetchCityAirQuality.mockResolvedValue(
+        mockApiResponse
+      );
       mockAirQualityModel.create.mockResolvedValue(mockCreatedRecord);
 
       const mockJob = {
@@ -141,7 +148,7 @@ describe('Queue Job Processing Integration', () => {
         log: jest.fn(),
       };
 
-      const result = await processor.fetchAirQualityData(mockJob as any);
+      const result = await processor.handleFetchParisData(mockJob as any);
 
       expect(mockIQAirApiService.fetchCityAirQuality).toHaveBeenCalledWith(
         'Paris',
@@ -166,7 +173,9 @@ describe('Queue Job Processing Integration', () => {
         retryCount: 3,
       };
 
-      mockIQAirApiService.fetchCityAirQuality.mockResolvedValue(mockApiResponse);
+      mockIQAirApiService.fetchCityAirQuality.mockResolvedValue(
+        mockApiResponse
+      );
 
       const mockJob = {
         data: jobData,
@@ -174,7 +183,9 @@ describe('Queue Job Processing Integration', () => {
         log: jest.fn(),
       };
 
-      await expect(processor.fetchAirQualityData(mockJob as any)).rejects.toThrow();
+      await expect(
+        processor.handleFetchParisData(mockJob as any)
+      ).rejects.toThrow();
 
       expect(mockIQAirApiService.fetchCityAirQuality).toHaveBeenCalled();
       expect(mockAirQualityModel.create).not.toHaveBeenCalled();
@@ -211,8 +222,12 @@ describe('Queue Job Processing Integration', () => {
         },
       };
 
-      mockIQAirApiService.fetchCityAirQuality.mockResolvedValue(mockApiResponse);
-      mockAirQualityModel.create.mockRejectedValue(new Error('Database connection failed'));
+      mockIQAirApiService.fetchCityAirQuality.mockResolvedValue(
+        mockApiResponse
+      );
+      mockAirQualityModel.create.mockRejectedValue(
+        new Error('Database connection failed')
+      );
 
       const mockJob = {
         data: jobData,
@@ -220,7 +235,9 @@ describe('Queue Job Processing Integration', () => {
         log: jest.fn(),
       };
 
-      await expect(processor.fetchAirQualityData(mockJob as any)).rejects.toThrow('Database connection failed');
+      await expect(
+        processor.handleFetchParisData(mockJob as any)
+      ).rejects.toThrow('Database connection failed');
 
       expect(mockIQAirApiService.fetchCityAirQuality).toHaveBeenCalled();
       expect(mockAirQualityModel.create).toHaveBeenCalled();
@@ -283,7 +300,9 @@ describe('Queue Job Processing Integration', () => {
         updatedAt: new Date(),
       };
 
-      mockIQAirApiService.fetchCityAirQuality.mockResolvedValue(mockApiResponse);
+      mockIQAirApiService.fetchCityAirQuality.mockResolvedValue(
+        mockApiResponse
+      );
       mockAirQualityModel.create.mockResolvedValue(mockCreatedRecord);
 
       const mockJob = {
@@ -291,7 +310,7 @@ describe('Queue Job Processing Integration', () => {
         log: jest.fn(),
       };
 
-      const result = await processor.fetchParisData(mockJob as any);
+      const result = await processor.handleFetchParisData(mockJob as any);
 
       expect(mockIQAirApiService.fetchCityAirQuality).toHaveBeenCalledWith(
         'Paris',
@@ -320,7 +339,10 @@ describe('Queue Job Processing Integration', () => {
 
       const result = await airQualityQueue.add('fetch-air-quality', jobData);
 
-      expect(mockAirQualityQueue.add).toHaveBeenCalledWith('fetch-air-quality', jobData);
+      expect(mockAirQualityQueue.add).toHaveBeenCalledWith(
+        'fetch-air-quality',
+        jobData
+      );
       expect(result).toEqual(mockJob);
     });
 
@@ -331,9 +353,13 @@ describe('Queue Job Processing Integration', () => {
         country: 'France',
       };
 
-      mockAirQualityQueue.add.mockRejectedValue(new Error('Queue connection failed'));
+      mockAirQualityQueue.add.mockRejectedValue(
+        new Error('Queue connection failed')
+      );
 
-      await expect(airQualityQueue.add('fetch-air-quality', jobData)).rejects.toThrow('Queue connection failed');
+      await expect(
+        airQualityQueue.add('fetch-air-quality', jobData)
+      ).rejects.toThrow('Queue connection failed');
     });
   });
-}); 
+});

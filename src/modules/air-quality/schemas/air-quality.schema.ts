@@ -89,4 +89,4 @@ AirQualitySchema.index({ location: '2dsphere' });
 AirQualitySchema.index({ city: 1, country: 1, timestamp: -1 });
 
 // Create TTL index to automatically delete old data (optional)
-// AirQualitySchema.index({ timestamp: 1 }, { expireAfterSeconds: 7776000 }); // 90 days 
+// AirQualitySchema.index({ timestamp: 1 }, { expireAfterSeconds: 7776000 }); // 90 days

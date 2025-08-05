@@ -3,15 +3,15 @@ import { Document } from 'mongoose';
 
 export type AirQualityWarmDocument = AirQualityWarm & Document;
 
-@Schema({ 
+@Schema({
   timestamps: true,
-  collection: 'air_quality_warm'
+  collection: 'air_quality_warm',
 })
 export class AirQualityWarm {
-  @Prop({ 
-    required: true, 
+  @Prop({
+    required: true,
     default: 'paris',
-    index: true 
+    index: true,
   })
   location: string;
 
@@ -27,29 +27,36 @@ export class AirQualityWarm {
     longitude: number;
   };
 
-  @Prop({ 
-    required: true, 
+  @Prop({
+    required: true,
     index: true,
-    type: Date 
+    type: Date,
   })
   timestamp: Date;
 
-  @Prop({ 
+  @Prop({
     required: true,
     min: 0,
-    max: 500 
+    max: 500,
   })
   aqi: number;
 
-  @Prop({ 
+  @Prop({
     required: true,
-    enum: ['p1', 'p2', 'p3', 'p4', 'p5', 'n2', 's4', 'co', 'o3', 'no2', 'so2']
+    enum: ['p1', 'p2', 'p3', 'p4', 'p5', 'n2', 's4', 'co', 'o3', 'no2', 'so2'],
   })
   main_pollutant: string;
 
-  @Prop({ 
+  @Prop({
     required: true,
-    enum: ['Good', 'Moderate', 'Unhealthy for Sensitive Groups', 'Unhealthy', 'Very Unhealthy', 'Hazardous']
+    enum: [
+      'Good',
+      'Moderate',
+      'Unhealthy for Sensitive Groups',
+      'Unhealthy',
+      'Very Unhealthy',
+      'Hazardous',
+    ],
   })
   pollution_level: string;
 
@@ -90,7 +97,8 @@ export class AirQualityWarm {
   updatedAt: Date;
 }
 
-export const AirQualityWarmSchema = SchemaFactory.createForClass(AirQualityWarm);
+export const AirQualityWarmSchema =
+  SchemaFactory.createForClass(AirQualityWarm);
 
 // Balanced indexes for warm data
 AirQualityWarmSchema.index({ timestamp: -1 });
@@ -100,8 +108,11 @@ AirQualityWarmSchema.index({ date: 1 }); // For daily aggregations
 AirQualityWarmSchema.index({ location: 1, timestamp: -1 });
 
 // TTL index - Auto-delete after 1 year
-AirQualityWarmSchema.index({ 
-  timestamp: 1 
-}, { 
-  expireAfterSeconds: 365 * 24 * 60 * 60 // 365 days
-}); 
+AirQualityWarmSchema.index(
+  {
+    timestamp: 1,
+  },
+  {
+    expireAfterSeconds: 365 * 24 * 60 * 60, // 365 days
+  }
+);

@@ -1,7 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Inject, CACHE_MANAGER } from '@nestjs/common';
-import { Cache } from 'cache-manager';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { EmailService, AlertType } from './email.service';
 
 export interface AlertThreshold {
@@ -80,7 +79,7 @@ export class AlertService {
   constructor(
     private configService: ConfigService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
-    private emailService: EmailService,
+    private emailService: EmailService
   ) {
     this.initializeAlertConditions();
   }
@@ -94,8 +93,9 @@ export class AlertService {
       {
         id: 'api_failures',
         type: AlertType.CRITICAL,
-        condition: (data: { consecutiveFailures: number }) => 
-          data.consecutiveFailures >= this.ALERT_THRESHOLDS.consecutive_api_failures,
+        condition: (data: { consecutiveFailures: number }) =>
+          data.consecutiveFailures >=
+          this.ALERT_THRESHOLDS.consecutive_api_failures,
         severity: 'critical',
         throttleMinutes: 30,
         escalationMinutes: 60,
@@ -106,8 +106,8 @@ export class AlertService {
       {
         id: 'high_pollution',
         type: AlertType.POLLUTION,
-        condition: (data: { aqi: number }) => 
-          data.aqi >= this.ALERT_THRESHOLDS.high_pollution_aqi && 
+        condition: (data: { aqi: number }) =>
+          data.aqi >= this.ALERT_THRESHOLDS.high_pollution_aqi &&
           data.aqi < this.ALERT_THRESHOLDS.extreme_pollution_aqi,
         severity: 'medium',
         throttleMinutes: 60,
@@ -119,7 +119,7 @@ export class AlertService {
       {
         id: 'extreme_pollution',
         type: AlertType.POLLUTION,
-        condition: (data: { aqi: number }) => 
+        condition: (data: { aqi: number }) =>
           data.aqi >= this.ALERT_THRESHOLDS.extreme_pollution_aqi,
         severity: 'high',
         throttleMinutes: 30,
@@ -131,7 +131,7 @@ export class AlertService {
       {
         id: 'queue_backlog',
         type: AlertType.SYSTEM_HEALTH,
-        condition: (data: { queueSize: number }) => 
+        condition: (data: { queueSize: number }) =>
           data.queueSize >= this.ALERT_THRESHOLDS.queue_backlog_size,
         severity: 'medium',
         throttleMinutes: 15,
@@ -143,7 +143,7 @@ export class AlertService {
       {
         id: 'system_error_rate',
         type: AlertType.SYSTEM_HEALTH,
-        condition: (data: { errorRate: number }) => 
+        condition: (data: { errorRate: number }) =>
           data.errorRate >= this.ALERT_THRESHOLDS.system_error_rate,
         severity: 'high',
         throttleMinutes: 10,
@@ -155,7 +155,7 @@ export class AlertService {
       {
         id: 'storage_usage',
         type: AlertType.SYSTEM_HEALTH,
-        condition: (data: { storageUsage: number }) => 
+        condition: (data: { storageUsage: number }) =>
           data.storageUsage >= this.ALERT_THRESHOLDS.storage_usage_threshold,
         severity: 'medium',
         throttleMinutes: 60,
@@ -189,9 +189,12 @@ export class AlertService {
   /**
    * Trigger a specific alert
    */
-  async triggerAlert(condition: AlertCondition, data: any): Promise<AlertHistory | null> {
+  async triggerAlert(
+    condition: AlertCondition,
+    data: any
+  ): Promise<AlertHistory | null> {
     const alertId = `${condition.id}_${Date.now()}`;
-    
+
     // Check throttling
     if (this.isThrottled(condition.id, condition.throttleMinutes)) {
       this.logger.debug(`Alert ${condition.id} is throttled`);
@@ -199,8 +202,11 @@ export class AlertService {
     }
 
     // Check if escalation is needed
-    const shouldEscalate = this.shouldEscalate(condition.id, condition.escalationMinutes);
-    const recipients = shouldEscalate 
+    const shouldEscalate = this.shouldEscalate(
+      condition.id,
+      condition.escalationMinutes
+    );
+    const recipients = shouldEscalate
       ? this.getEscalatedRecipients(condition.recipients)
       : condition.recipients;
 
@@ -232,7 +238,10 @@ export class AlertService {
       alert.emailDeliveryId = emailDelivery.id;
       this.alertHistory.set(alertId, alert);
     } catch (error) {
-      this.logger.error(`Failed to send alert email for ${condition.id}:`, error);
+      this.logger.error(
+        `Failed to send alert email for ${condition.id}:`,
+        error
+      );
     }
 
     this.logger.log(`Alert triggered: ${condition.id} (${condition.severity})`);
@@ -242,7 +251,11 @@ export class AlertService {
   /**
    * Send alert email
    */
-  private async sendAlertEmail(alert: AlertHistory, condition: AlertCondition, data: any): Promise<any> {
+  private async sendAlertEmail(
+    alert: AlertHistory,
+    condition: AlertCondition,
+    data: any
+  ): Promise<any> {
     const template = this.emailService.generateEmailTemplate(condition.type, {
       ...data,
       alertId: alert.id,
@@ -255,7 +268,7 @@ export class AlertService {
       template.subject,
       template.html,
       template.text,
-      condition.type,
+      condition.type
     );
   }
 
@@ -267,7 +280,9 @@ export class AlertService {
     if (!throttle) return false;
 
     const now = new Date();
-    const throttleWindow = new Date(now.getTime() - throttleMinutes * 60 * 1000);
+    const throttleWindow = new Date(
+      now.getTime() - throttleMinutes * 60 * 1000
+    );
 
     return throttle.lastTriggered > throttleWindow;
   }
@@ -296,7 +311,9 @@ export class AlertService {
     if (!throttle) return false;
 
     const now = new Date();
-    const escalationWindow = new Date(now.getTime() - escalationMinutes * 60 * 1000);
+    const escalationWindow = new Date(
+      now.getTime() - escalationMinutes * 60 * 1000
+    );
 
     // Escalate if alert has been triggered multiple times within escalation window
     return throttle.count > 3 && throttle.lastTriggered > escalationWindow;
@@ -306,7 +323,10 @@ export class AlertService {
    * Get escalated recipients
    */
   private getEscalatedRecipients(originalRecipients: string[]): string[] {
-    const escalationRecipients = this.configService.get<string[]>('alerts.escalationRecipients', []);
+    const escalationRecipients = this.configService.get<string[]>(
+      'alerts.escalationRecipients',
+      []
+    );
     return [...new Set([...originalRecipients, ...escalationRecipients])];
   }
 
@@ -335,7 +355,10 @@ export class AlertService {
   /**
    * Acknowledge an alert
    */
-  async acknowledgeAlert(alertId: string, acknowledgedBy: string): Promise<AlertHistory | null> {
+  async acknowledgeAlert(
+    alertId: string,
+    acknowledgedBy: string
+  ): Promise<AlertHistory | null> {
     const alert = this.alertHistory.get(alertId);
     if (!alert) {
       return null;
@@ -363,7 +386,7 @@ export class AlertService {
       startDate?: Date;
       endDate?: Date;
     },
-    limit: number = 100,
+    limit: number = 100
   ): Promise<AlertHistory[]> {
     let alerts = Array.from(this.alertHistory.values());
 
@@ -375,7 +398,9 @@ export class AlertService {
       alerts = alerts.filter(alert => alert.severity === filters.severity);
     }
     if (filters?.acknowledged !== undefined) {
-      alerts = alerts.filter(alert => alert.acknowledged === filters.acknowledged);
+      alerts = alerts.filter(
+        alert => alert.acknowledged === filters.acknowledged
+      );
     }
     if (filters?.escalated !== undefined) {
       alerts = alerts.filter(alert => alert.escalated === filters.escalated);
@@ -422,7 +447,8 @@ export class AlertService {
     };
 
     for (const alert of alerts) {
-      stats.bySeverity[alert.severity] = (stats.bySeverity[alert.severity] || 0) + 1;
+      stats.bySeverity[alert.severity] =
+        (stats.bySeverity[alert.severity] || 0) + 1;
       stats.byType[alert.type] = (stats.byType[alert.type] || 0) + 1;
       if (alert.acknowledged) stats.acknowledged++;
       if (alert.escalated) stats.escalated++;
@@ -455,14 +481,18 @@ export class AlertService {
       }
     }
 
-    this.logger.log(`Cleared ${deletedCount} old alerts (older than ${daysToKeep} days)`);
+    this.logger.log(
+      `Cleared ${deletedCount} old alerts (older than ${daysToKeep} days)`
+    );
     return deletedCount;
   }
 
   /**
    * Update alert thresholds
    */
-  async updateAlertThresholds(newThresholds: Partial<AlertThreshold>): Promise<void> {
+  async updateAlertThresholds(
+    newThresholds: Partial<AlertThreshold>
+  ): Promise<void> {
     Object.assign(this.ALERT_THRESHOLDS, newThresholds);
     this.logger.log('Alert thresholds updated:', newThresholds);
   }
@@ -515,14 +545,17 @@ export class AlertService {
     unhealthyHours: number;
   }): Promise<void> {
     const recipients = this.getPollutionRecipients();
-    const template = this.emailService.generateEmailTemplate(AlertType.DAILY_SUMMARY, data);
+    const template = this.emailService.generateEmailTemplate(
+      AlertType.DAILY_SUMMARY,
+      data
+    );
 
     await this.emailService.sendEmail(
       recipients.join(', '),
       template.subject,
       template.html,
       template.text,
-      AlertType.DAILY_SUMMARY,
+      AlertType.DAILY_SUMMARY
     );
 
     this.logger.log(`Daily summary sent for ${data.city} on ${data.date}`);
@@ -543,17 +576,22 @@ export class AlertService {
     recommendations: string[];
   }): Promise<void> {
     const recipients = this.getPollutionRecipients();
-    const template = this.emailService.generateEmailTemplate(AlertType.WEEKLY_REPORT, data);
+    const template = this.emailService.generateEmailTemplate(
+      AlertType.WEEKLY_REPORT,
+      data
+    );
 
     await this.emailService.sendEmail(
       recipients.join(', '),
       template.subject,
       template.html,
       template.text,
-      AlertType.WEEKLY_REPORT,
+      AlertType.WEEKLY_REPORT
     );
 
-    this.logger.log(`Weekly report sent for ${data.city} (${data.weekStart} to ${data.weekEnd})`);
+    this.logger.log(
+      `Weekly report sent for ${data.city} (${data.weekStart} to ${data.weekEnd})`
+    );
   }
 
   /**
@@ -567,16 +605,21 @@ export class AlertService {
     uptime: number;
   }): Promise<void> {
     const recipients = this.getSystemRecipients();
-    const template = this.emailService.generateEmailTemplate(AlertType.SYSTEM_HEALTH, data);
+    const template = this.emailService.generateEmailTemplate(
+      AlertType.SYSTEM_HEALTH,
+      data
+    );
 
     await this.emailService.sendEmail(
       recipients.join(', '),
       template.subject,
       template.html,
       template.text,
-      AlertType.SYSTEM_HEALTH,
+      AlertType.SYSTEM_HEALTH
     );
 
-    this.logger.log(`System health alert sent at ${data.timestamp.toLocaleString()}`);
+    this.logger.log(
+      `System health alert sent at ${data.timestamp.toLocaleString()}`
+    );
   }
-} 
+}

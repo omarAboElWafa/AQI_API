@@ -1,9 +1,18 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 
-import { AirQualityHot, AirQualityHotSchema } from './schemas/air-quality-hot.schema';
-import { AirQualityWarm, AirQualityWarmSchema } from './schemas/air-quality-warm.schema';
-import { AirQualityCold, AirQualityColdSchema } from './schemas/air-quality-cold.schema';
+import {
+  AirQualityHot,
+  AirQualityHotSchema,
+} from './schemas/air-quality-hot.schema';
+import {
+  AirQualityWarm,
+  AirQualityWarmSchema,
+} from './schemas/air-quality-warm.schema';
+import {
+  AirQualityCold,
+  AirQualityColdSchema,
+} from './schemas/air-quality-cold.schema';
 import { DataMigrationService } from './services/data-migration.service';
 import { SmartQueryService } from './services/smart-query.service';
 import { DataManagementController } from './controllers/data-management.controller';
@@ -12,7 +21,8 @@ import { DataManagementController } from './controllers/data-management.controll
   imports: [
     MongooseModule.forRootAsync({
       useFactory: async () => ({
-        uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/aqi_monitoring',
+        uri:
+          process.env.MONGODB_URI || 'mongodb://localhost:27017/aqi_monitoring',
         useNewUrlParser: true,
         useUnifiedTopology: true,
       }),
@@ -27,4 +37,4 @@ import { DataManagementController } from './controllers/data-management.controll
   providers: [DataMigrationService, SmartQueryService],
   exports: [MongooseModule, DataMigrationService, SmartQueryService],
 })
-export class DatabaseModule {} 
+export class DatabaseModule {}

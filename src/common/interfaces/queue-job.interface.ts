@@ -110,4 +110,4 @@ export interface QueueStats {
   paused: boolean;
   processingRate: number;
   avgProcessingTime: number;
-} 
+}

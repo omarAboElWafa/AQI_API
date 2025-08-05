@@ -16,7 +16,12 @@ import { NotificationsController } from './controllers/notifications.controller'
     CacheModule.register(),
   ],
   controllers: [NotificationsController],
-  providers: [NotificationsService, NotificationsProcessor, EmailService, AlertService],
+  providers: [
+    NotificationsService,
+    NotificationsProcessor,
+    EmailService,
+    AlertService,
+  ],
   exports: [NotificationsService, EmailService, AlertService],
 })
-export class NotificationsModule {} 
+export class NotificationsModule {}

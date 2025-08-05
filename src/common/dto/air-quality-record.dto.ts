@@ -1,17 +1,17 @@
-import { 
-  IsString, 
-  IsNumber, 
-  IsOptional, 
-  IsDate, 
-  IsEnum, 
-  IsBoolean, 
-  Min, 
-  Max, 
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsDate,
+  IsEnum,
+  IsBoolean,
+  Min,
+  Max,
   IsObject,
   ValidateNested,
   IsArray,
   ArrayMinSize,
-  ArrayMaxSize
+  ArrayMaxSize,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
@@ -76,7 +76,14 @@ export class CreateAirQualityRecordDto {
   @IsEnum(['p1', 'p2', 'p3', 'p4', 'p5', 'n2', 's4', 'co', 'o3', 'no2', 'so2'])
   main_pollutant: string;
 
-  @IsEnum(['Good', 'Moderate', 'Unhealthy for Sensitive Groups', 'Unhealthy', 'Very Unhealthy', 'Hazardous'])
+  @IsEnum([
+    'Good',
+    'Moderate',
+    'Unhealthy for Sensitive Groups',
+    'Unhealthy',
+    'Very Unhealthy',
+    'Hazardous',
+  ])
   pollution_level: string;
 
   @ValidateNested()
@@ -156,7 +163,14 @@ export class UpdateAirQualityRecordDto {
   main_pollutant?: string;
 
   @IsOptional()
-  @IsEnum(['Good', 'Moderate', 'Unhealthy for Sensitive Groups', 'Unhealthy', 'Very Unhealthy', 'Hazardous'])
+  @IsEnum([
+    'Good',
+    'Moderate',
+    'Unhealthy for Sensitive Groups',
+    'Unhealthy',
+    'Very Unhealthy',
+    'Hazardous',
+  ])
   pollution_level?: string;
 
   @IsOptional()
@@ -204,7 +218,14 @@ export class AirQualityQueryDto {
   pollutant?: string;
 
   @IsOptional()
-  @IsEnum(['Good', 'Moderate', 'Unhealthy for Sensitive Groups', 'Unhealthy', 'Very Unhealthy', 'Hazardous'])
+  @IsEnum([
+    'Good',
+    'Moderate',
+    'Unhealthy for Sensitive Groups',
+    'Unhealthy',
+    'Very Unhealthy',
+    'Hazardous',
+  ])
   pollution_level?: string;
 
   @IsOptional()
@@ -217,4 +238,4 @@ export class AirQualityQueryDto {
   @IsNumber()
   @Min(0)
   skip?: number = 0;
-} 
+}

@@ -46,7 +46,7 @@ export class QueueService {
   constructor(
     @InjectQueue('air-quality') private airQualityQueue: Queue,
     @InjectQueue('notifications') private notificationsQueue: Queue,
-    @InjectQueue('analytics') private analyticsQueue: Queue,
+    @InjectQueue('analytics') private analyticsQueue: Queue
   ) {
     this.setupQueueListeners();
   }
@@ -81,8 +81,12 @@ export class QueueService {
     };
 
     this.logger.log(`Adding FETCH_PARIS_DATA job with priority ${priority}`);
-    
-    return await this.airQualityQueue.add(JobType.FETCH_PARIS_DATA, jobData, options);
+
+    return await this.airQualityQueue.add(
+      JobType.FETCH_PARIS_DATA,
+      jobData,
+      options
+    );
   }
 
   /**
@@ -113,9 +117,15 @@ export class QueueService {
       removeOnFail: 10,
     };
 
-    this.logger.log(`Adding CALCULATE_DAILY_STATS job for ${location} on ${date}`);
-    
-    return await this.analyticsQueue.add(JobType.CALCULATE_DAILY_STATS, jobData, options);
+    this.logger.log(
+      `Adding CALCULATE_DAILY_STATS job for ${location} on ${date}`
+    );
+
+    return await this.analyticsQueue.add(
+      JobType.CALCULATE_DAILY_STATS,
+      jobData,
+      options
+    );
   }
 
   /**
@@ -150,9 +160,15 @@ export class QueueService {
       attempts: 3,
     };
 
-    this.logger.log(`Adding SEND_ALERT_EMAIL job for ${alertData.city} (AQI: ${alertData.aqi})`);
-    
-    return await this.notificationsQueue.add(JobType.SEND_ALERT_EMAIL, jobData, options);
+    this.logger.log(
+      `Adding SEND_ALERT_EMAIL job for ${alertData.city} (AQI: ${alertData.aqi})`
+    );
+
+    return await this.notificationsQueue.add(
+      JobType.SEND_ALERT_EMAIL,
+      jobData,
+      options
+    );
   }
 
   /**
@@ -209,7 +225,9 @@ export class QueueService {
       jobOptions
     );
 
-    this.logger.log('Scheduled daily stats calculation job to run daily at 1 AM');
+    this.logger.log(
+      'Scheduled daily stats calculation job to run daily at 1 AM'
+    );
   }
 
   /**
@@ -306,15 +324,20 @@ export class QueueService {
   /**
    * Clean completed jobs
    */
-  async cleanCompletedJobs(queueName: string, olderThan: number = 24 * 60 * 60 * 1000): Promise<number> {
+  async cleanCompletedJobs(
+    queueName: string,
+    olderThan: number = 24 * 60 * 60 * 1000
+  ): Promise<number> {
     const queue = this.getQueueByName(queueName);
     if (!queue) {
       throw new Error(`Queue ${queueName} not found`);
     }
 
     const cleaned = await queue.clean(olderThan, 'completed');
-    this.logger.log(`Cleaned ${cleaned.length} completed jobs from queue ${queueName}`);
-    
+    this.logger.log(
+      `Cleaned ${cleaned.length} completed jobs from queue ${queueName}`
+    );
+
     return cleaned.length;
   }
 
@@ -350,7 +373,10 @@ export class QueueService {
       });
 
       queue.on('failed', (job: Job, err: Error) => {
-        this.logger.error(`Job ${job.id} failed in queue ${name}:`, err.message);
+        this.logger.error(
+          `Job ${job.id} failed in queue ${name}:`,
+          err.message
+        );
       });
 
       queue.on('stalled', (job: Job) => {
@@ -358,7 +384,9 @@ export class QueueService {
       });
 
       queue.on('progress', (job: Job, progress: number) => {
-        this.logger.debug(`Job ${job.id} progress: ${progress}% in queue ${name}`);
+        this.logger.debug(
+          `Job ${job.id} progress: ${progress}% in queue ${name}`
+        );
       });
 
       queue.on('waiting', (jobId: string) => {
@@ -428,4 +456,4 @@ export class QueueService {
 
     return result;
   }
-} 
+}

@@ -6,7 +6,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: production
     container_name: aqi-api
     restart: unless-stopped
     ports:

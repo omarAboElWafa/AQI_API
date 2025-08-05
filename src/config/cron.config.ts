@@ -45,7 +45,8 @@ export default registerAs('cron', () => ({
       cron: '0 * * * *', // Every hour
       timezone: 'UTC',
       enabled: true,
-      description: 'Calculate current day aggregations for all tracked locations',
+      description:
+        'Calculate current day aggregations for all tracked locations',
       category: 'analytics',
       priority: 'normal',
     },
@@ -161,4 +162,4 @@ export default registerAs('cron', () => ({
       },
     },
   },
-})); 
+}));

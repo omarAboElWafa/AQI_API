@@ -1,11 +1,16 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { getModelToken } from '@nestjs/mongoose';
+import { Test, TestingModule } from '@nestjs/testing';
 import { Model } from 'mongoose';
-import { AnalyticsService } from '../../src/modules/analytics/analytics.service';
-import { DailyAggregation, DailyAggregationDocument } from '../../src/modules/analytics/schemas/daily-aggregation.schema';
-import { AirQuality, AirQualityDocument } from '../../src/modules/air-quality/schemas/air-quality.schema';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import {
+  AirQuality,
+  AirQualityDocument,
+} from '../../src/modules/air-quality/schemas/air-quality.schema';
+import {
+  DailyAggregation,
+  DailyAggregationDocument,
+} from '../../src/modules/analytics/schemas/daily-aggregation.schema';
+import { AnalyticsService } from '../../src/modules/analytics/services/analytics.service';
 
 describe('Analytics Integration', () => {
   let module: TestingModule;
@@ -54,8 +59,12 @@ describe('Analytics Integration', () => {
     }).compile();
 
     analyticsService = module.get<AnalyticsService>(AnalyticsService);
-    dailyAggregationModel = module.get<Model<DailyAggregationDocument>>(getModelToken(DailyAggregation.name));
-    airQualityModel = module.get<Model<AirQualityDocument>>(getModelToken(AirQuality.name));
+    dailyAggregationModel = module.get<Model<DailyAggregationDocument>>(
+      getModelToken(DailyAggregation.name)
+    );
+    airQualityModel = module.get<Model<AirQualityDocument>>(
+      getModelToken(AirQuality.name)
+    );
     cacheManager = module.get<Cache>(CACHE_MANAGER);
   });
 
@@ -97,7 +106,11 @@ describe('Analytics Integration', () => {
 
       mockDailyAggregationModel.create.mockResolvedValue(mockCreatedRecord);
 
-      const result = await analyticsService.calculateDailyStats('2024-08-05', 'Paris', 'France');
+      const result = await analyticsService.calculateDailyStats(
+        '2024-08-05',
+        'Paris',
+        'France'
+      );
 
       expect(result).toBeDefined();
       expect(result.averageAQI).toBe(65.5);
@@ -112,7 +125,11 @@ describe('Analytics Integration', () => {
         exec: jest.fn().mockResolvedValue([]),
       });
 
-      const result = await analyticsService.calculateDailyStats('2024-08-05', 'Paris', 'France');
+      const result = await analyticsService.calculateDailyStats(
+        '2024-08-05',
+        'Paris',
+        'France'
+      );
 
       expect(result).toBeNull();
       expect(mockDailyAggregationModel.create).not.toHaveBeenCalled();
@@ -120,10 +137,14 @@ describe('Analytics Integration', () => {
 
     it('should handle aggregation errors gracefully', async () => {
       mockAirQualityModel.aggregate.mockReturnValue({
-        exec: jest.fn().mockRejectedValue(new Error('Database aggregation failed')),
+        exec: jest
+          .fn()
+          .mockRejectedValue(new Error('Database aggregation failed')),
       });
 
-      await expect(analyticsService.calculateDailyStats('2024-08-05', 'Paris', 'France')).rejects.toThrow('Database aggregation failed');
+      await expect(
+        analyticsService.calculateDailyStats('2024-08-05', 'Paris', 'France')
+      ).rejects.toThrow('Database aggregation failed');
     });
   });
 
@@ -143,10 +164,16 @@ describe('Analytics Integration', () => {
 
       mockCacheManager.get.mockResolvedValue(mockCachedData);
 
-      const result = await analyticsService.getDailySummary('2024-08-05', 'Paris', 'France');
+      const result = await analyticsService.getDailySummary(
+        '2024-08-05',
+        'Paris',
+        'France'
+      );
 
       expect(result).toEqual(mockCachedData);
-      expect(mockCacheManager.get).toHaveBeenCalledWith('daily-summary-Paris-France-2024-08-05');
+      expect(mockCacheManager.get).toHaveBeenCalledWith(
+        'daily-summary-Paris-France-2024-08-05'
+      );
     });
 
     it('should calculate and cache daily summary when not cached', async () => {
@@ -168,7 +195,11 @@ describe('Analytics Integration', () => {
         exec: jest.fn().mockResolvedValue(mockAggregationResult),
       });
 
-      const result = await analyticsService.getDailySummary('2024-08-05', 'Paris', 'France');
+      const result = await analyticsService.getDailySummary(
+        '2024-08-05',
+        'Paris',
+        'France'
+      );
 
       expect(result).toBeDefined();
       expect(mockCacheManager.set).toHaveBeenCalledWith(
@@ -191,7 +222,11 @@ describe('Analytics Integration', () => {
         exec: jest.fn().mockResolvedValue(mockHourlyData),
       });
 
-      const result = await analyticsService.getHourlyAverages('2024-08-05', 'Paris', 'France');
+      const result = await analyticsService.getHourlyAverages(
+        '2024-08-05',
+        'Paris',
+        'France'
+      );
 
       expect(result).toEqual(mockHourlyData);
       expect(mockAirQualityModel.aggregate).toHaveBeenCalledWith(
@@ -208,7 +243,11 @@ describe('Analytics Integration', () => {
         exec: jest.fn().mockResolvedValue([]),
       });
 
-      const result = await analyticsService.getHourlyAverages('2024-08-05', 'Paris', 'France');
+      const result = await analyticsService.getHourlyAverages(
+        '2024-08-05',
+        'Paris',
+        'France'
+      );
 
       expect(result).toEqual([]);
     });
@@ -252,10 +291,13 @@ describe('Analytics Integration', () => {
         }),
       });
 
-      const result = await analyticsService.getMostPollutedTime('Paris', 'France');
+      const result = await analyticsService.getMostPollutedTime(
+        'Paris',
+        'France'
+      );
 
       expect(result).toBeDefined();
-      expect(result?.aqius).toBe(150);
+      expect(result?.aqi).toBe(150);
       expect(mockAirQualityModel.find).toHaveBeenCalledWith({
         city: 'Paris',
         country: 'France',
@@ -271,7 +313,10 @@ describe('Analytics Integration', () => {
         }),
       });
 
-      const result = await analyticsService.getMostPollutedTime('Paris', 'France');
+      const result = await analyticsService.getMostPollutedTime(
+        'Paris',
+        'France'
+      );
 
       expect(result).toBeNull();
     });
@@ -280,31 +325,79 @@ describe('Analytics Integration', () => {
   describe('generateDailyReport', () => {
     it('should generate comprehensive daily report', async () => {
       const mockDailyStats = {
+        date: '2024-08-05',
+        city: 'Paris',
+        country: 'France',
         averageAQI: 65.5,
         minAQI: 45,
         maxAQI: 95,
         dominantPollutant: 'p2',
-        measurementCount: 24,
-        unhealthyHours: 8,
+        pollutionLevel: 'Moderate' as const,
+        hourlyAverages: [],
+        totalRecords: 24,
+        missingDataHours: [],
+        lastUpdated: new Date(),
       };
 
       const mockHourlyData = [
-        { hour: 0, averageAQI: 60, count: 1 },
-        { hour: 1, averageAQI: 65, count: 1 },
+        {
+          hour: 0,
+          averageAQI: 60,
+          maxAQI: 65,
+          minAQI: 55,
+          dominantPollutant: 'p2',
+          recordCount: 1,
+          weatherAverage: {
+            temperature: 20,
+            humidity: 60,
+            pressure: 1013,
+            windSpeed: 5,
+          },
+        },
+        {
+          hour: 1,
+          averageAQI: 65,
+          maxAQI: 70,
+          minAQI: 60,
+          dominantPollutant: 'p2',
+          recordCount: 1,
+          weatherAverage: {
+            temperature: 21,
+            humidity: 62,
+            pressure: 1012,
+            windSpeed: 6,
+          },
+        },
       ];
 
       const mockMostPolluted = {
         timestamp: new Date('2024-08-05T14:00:00Z'),
-        aqius: 150,
+        aqi: 150,
+        pollutant: 'p2',
         city: 'Paris',
         country: 'France',
+        weather: {
+          temperature: 25,
+          humidity: 70,
+          pressure: 1010,
+          windSpeed: 8,
+        },
       };
 
-      jest.spyOn(analyticsService, 'calculateDailyStats').mockResolvedValue(mockDailyStats);
-      jest.spyOn(analyticsService, 'getHourlyAverages').mockResolvedValue(mockHourlyData);
-      jest.spyOn(analyticsService, 'getMostPollutedTime').mockResolvedValue(mockMostPolluted);
+      jest
+        .spyOn(analyticsService, 'calculateDailyStats')
+        .mockResolvedValue(mockDailyStats);
+      jest
+        .spyOn(analyticsService, 'getHourlyAverages')
+        .mockResolvedValue(mockHourlyData);
+      jest
+        .spyOn(analyticsService, 'getMostPollutedTime')
+        .mockResolvedValue(mockMostPolluted);
 
-      const result = await analyticsService.generateDailyReport('Paris', 'France');
+      const result = await analyticsService.generateDailyReport(
+        'Paris',
+        'France'
+      );
 
       expect(result).toHaveProperty('summary');
       expect(result).toHaveProperty('hourlyBreakdown');
@@ -323,9 +416,13 @@ describe('Analytics Integration', () => {
     });
 
     it('should handle cache invalidation errors gracefully', async () => {
-      mockCacheManager.del.mockRejectedValue(new Error('Cache deletion failed'));
+      mockCacheManager.del.mockRejectedValue(
+        new Error('Cache deletion failed')
+      );
 
-      await expect(analyticsService.invalidateCache('Paris', 'France', '2024-08-05')).rejects.toThrow('Cache deletion failed');
+      await expect(
+        analyticsService.invalidateCache('Paris', 'France', '2024-08-05')
+      ).rejects.toThrow('Cache deletion failed');
     });
   });
 
@@ -333,11 +430,15 @@ describe('Analytics Integration', () => {
     it('should validate date format correctly', async () => {
       const invalidDate = 'invalid-date';
 
-      await expect(analyticsService.calculateDailyStats(invalidDate, 'Paris', 'France')).rejects.toThrow();
+      await expect(
+        analyticsService.calculateDailyStats(invalidDate, 'Paris', 'France')
+      ).rejects.toThrow();
     });
 
     it('should handle empty city and country parameters', async () => {
-      await expect(analyticsService.calculateDailyStats('2024-08-05', '', '')).rejects.toThrow();
+      await expect(
+        analyticsService.calculateDailyStats('2024-08-05', '', '')
+      ).rejects.toThrow();
     });
   });
 
@@ -361,7 +462,11 @@ describe('Analytics Integration', () => {
         exec: jest.fn().mockResolvedValue(mockAggregationResult),
       });
 
-      await analyticsService.calculateDailyStats('2024-08-05', 'Paris', 'France');
+      await analyticsService.calculateDailyStats(
+        '2024-08-05',
+        'Paris',
+        'France'
+      );
 
       const endTime = Date.now();
       const executionTime = endTime - startTime;
@@ -369,4 +474,4 @@ describe('Analytics Integration', () => {
       expect(executionTime).toBeLessThan(5000); // Should complete within 5 seconds
     });
   });
-}); 
+});

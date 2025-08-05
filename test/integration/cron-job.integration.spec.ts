@@ -1,14 +1,13 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { SchedulerRegistry } from '@nestjs/schedule';
-import { CronService } from '../../src/modules/air-quality/services/cron.service';
-import { QueueService } from '../../src/modules/queue/services/queue.service';
-import { AnalyticsService } from '../../src/modules/analytics/analytics.service';
-import { QueueHealthService } from '../../src/modules/queue/services/queue-health.service';
-import { Queue } from 'bull';
 import { getQueueToken } from '@nestjs/bull';
-import { CACHE_MANAGER } from '@nestjs/common';
-import { Cache } from 'cache-manager';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { ConfigService } from '@nestjs/config';
+import { SchedulerRegistry } from '@nestjs/schedule';
+import { Test, TestingModule } from '@nestjs/testing';
+import { Queue } from 'bull';
+import { CronService } from '../../src/modules/air-quality/services/cron.service';
+import { AnalyticsService } from '../../src/modules/analytics/services/analytics.service';
+import { QueueHealthService } from '../../src/modules/queue/services/queue-health.service';
+import { QueueService } from '../../src/modules/queue/services/queue.service';
 
 describe('CRON Job Execution Integration', () => {
   let module: TestingModule;
@@ -138,11 +137,15 @@ describe('CRON Job Execution Integration', () => {
       };
 
       mockQueueHealthService.getQueueHealth.mockResolvedValue(mockQueueHealth);
-      mockQueueService.addFetchParisDataJob.mockResolvedValue({ id: 'test-job-id' });
+      mockQueueService.addFetchParisDataJob.mockResolvedValue({
+        id: 'test-job-id',
+      });
 
       await cronService.scheduleParisFetch();
 
-      expect(mockQueueHealthService.getQueueHealth).toHaveBeenCalledWith('air-quality');
+      expect(mockQueueHealthService.getQueueHealth).toHaveBeenCalledWith(
+        'air-quality'
+      );
       expect(mockQueueService.addFetchParisDataJob).toHaveBeenCalled();
     });
 
@@ -157,7 +160,9 @@ describe('CRON Job Execution Integration', () => {
 
       await cronService.scheduleParisFetch();
 
-      expect(mockQueueHealthService.getQueueHealth).toHaveBeenCalledWith('air-quality');
+      expect(mockQueueHealthService.getQueueHealth).toHaveBeenCalledWith(
+        'air-quality'
+      );
       expect(mockQueueService.addFetchParisDataJob).not.toHaveBeenCalled();
     });
 
@@ -175,18 +180,24 @@ describe('CRON Job Execution Integration', () => {
       // and checking if it respects the circuit breaker state
       await cronService.scheduleParisFetch();
 
-      expect(mockQueueHealthService.getQueueHealth).toHaveBeenCalledWith('air-quality');
+      expect(mockQueueHealthService.getQueueHealth).toHaveBeenCalledWith(
+        'air-quality'
+      );
     });
   });
 
   describe('scheduleHourlyAggregations', () => {
     it('should schedule hourly aggregations successfully', async () => {
       const mockTrackedLocations = ['Paris, France', 'London, UK'];
-      
+
       // Mock the getTrackedLocations method
-      jest.spyOn(cronService as any, 'getTrackedLocations').mockResolvedValue(mockTrackedLocations);
-      
-      mockQueueService.addCalculateDailyStatsJob.mockResolvedValue({ id: 'test-job-id' });
+      jest
+        .spyOn(cronService as any, 'getTrackedLocations')
+        .mockResolvedValue(mockTrackedLocations);
+
+      mockQueueService.addCalculateDailyStatsJob.mockResolvedValue({
+        id: 'test-job-id',
+      });
 
       await cronService.scheduleHourlyAggregations();
 
@@ -198,15 +209,25 @@ describe('CRON Job Execution Integration', () => {
     });
 
     it('should handle multiple locations for aggregation', async () => {
-      const mockTrackedLocations = ['Paris, France', 'London, UK', 'Berlin, Germany'];
-      
-      jest.spyOn(cronService as any, 'getTrackedLocations').mockResolvedValue(mockTrackedLocations);
-      
-      mockQueueService.addCalculateDailyStatsJob.mockResolvedValue({ id: 'test-job-id' });
+      const mockTrackedLocations = [
+        'Paris, France',
+        'London, UK',
+        'Berlin, Germany',
+      ];
+
+      jest
+        .spyOn(cronService as any, 'getTrackedLocations')
+        .mockResolvedValue(mockTrackedLocations);
+
+      mockQueueService.addCalculateDailyStatsJob.mockResolvedValue({
+        id: 'test-job-id',
+      });
 
       await cronService.scheduleHourlyAggregations();
 
-      expect(mockQueueService.addCalculateDailyStatsJob).toHaveBeenCalledTimes(mockTrackedLocations.length);
+      expect(mockQueueService.addCalculateDailyStatsJob).toHaveBeenCalledTimes(
+        mockTrackedLocations.length
+      );
     });
   });
 
@@ -224,14 +245,21 @@ describe('CRON Job Execution Integration', () => {
         trend: 'stable' as const,
       };
 
-      jest.spyOn(cronService as any, 'getTrackedLocations').mockResolvedValue(mockTrackedLocations);
-      mockAnalyticsService.generateDailyReport.mockResolvedValue(mockDailyReport);
+      jest
+        .spyOn(cronService as any, 'getTrackedLocations')
+        .mockResolvedValue(mockTrackedLocations);
+      mockAnalyticsService.generateDailyReport.mockResolvedValue(
+        mockDailyReport
+      );
       mockCacheManager.set.mockResolvedValue(undefined);
       mockNotificationsQueue.add.mockResolvedValue({ id: 'test-job-id' });
 
       await cronService.finalizeDailyStatistics();
 
-      expect(mockAnalyticsService.generateDailyReport).toHaveBeenCalledWith('Paris', 'France');
+      expect(mockAnalyticsService.generateDailyReport).toHaveBeenCalledWith(
+        'Paris',
+        'France'
+      );
       expect(mockCacheManager.set).toHaveBeenCalled();
     });
 
@@ -248,8 +276,12 @@ describe('CRON Job Execution Integration', () => {
         trend: 'worsening' as const,
       };
 
-      jest.spyOn(cronService as any, 'getTrackedLocations').mockResolvedValue(mockTrackedLocations);
-      mockAnalyticsService.generateDailyReport.mockResolvedValue(mockDailyReport);
+      jest
+        .spyOn(cronService as any, 'getTrackedLocations')
+        .mockResolvedValue(mockTrackedLocations);
+      mockAnalyticsService.generateDailyReport.mockResolvedValue(
+        mockDailyReport
+      );
       mockCacheManager.set.mockResolvedValue(undefined);
       mockNotificationsQueue.add.mockResolvedValue({ id: 'test-job-id' });
 
@@ -270,7 +302,7 @@ describe('CRON Job Execution Integration', () => {
   describe('weeklyCleanup', () => {
     it('should perform weekly cleanup successfully', async () => {
       const mockCleanupResults = [10, 5, 3]; // Number of jobs cleaned from each queue
-      
+
       mockQueueService.cleanCompletedJobs.mockResolvedValue(10);
 
       await cronService.weeklyCleanup();
@@ -310,9 +342,15 @@ describe('CRON Job Execution Integration', () => {
         { healthScore: 0.7, queueName: 'notifications', issues: [] },
       ];
 
-      mockQueueHealthService.getQueueHealth.mockResolvedValueOnce(mockQueueHealths[0]);
-      mockQueueHealthService.getQueueHealth.mockResolvedValueOnce(mockQueueHealths[1]);
-      mockQueueHealthService.getQueueHealth.mockResolvedValueOnce(mockQueueHealths[2]);
+      mockQueueHealthService.getQueueHealth.mockResolvedValueOnce(
+        mockQueueHealths[0]
+      );
+      mockQueueHealthService.getQueueHealth.mockResolvedValueOnce(
+        mockQueueHealths[1]
+      );
+      mockQueueHealthService.getQueueHealth.mockResolvedValueOnce(
+        mockQueueHealths[2]
+      );
 
       await cronService.performHealthCheck();
 
@@ -321,14 +359,28 @@ describe('CRON Job Execution Integration', () => {
 
     it('should trigger alerts for unhealthy queues', async () => {
       const mockQueueHealths = [
-        { healthScore: 0.3, queueName: 'air-quality', issues: ['High failure rate'] },
-        { healthScore: 0.4, queueName: 'analytics', issues: ['Slow processing'] },
+        {
+          healthScore: 0.3,
+          queueName: 'air-quality',
+          issues: ['High failure rate'],
+        },
+        {
+          healthScore: 0.4,
+          queueName: 'analytics',
+          issues: ['Slow processing'],
+        },
         { healthScore: 0.9, queueName: 'notifications', issues: [] },
       ];
 
-      mockQueueHealthService.getQueueHealth.mockResolvedValueOnce(mockQueueHealths[0]);
-      mockQueueHealthService.getQueueHealth.mockResolvedValueOnce(mockQueueHealths[1]);
-      mockQueueHealthService.getQueueHealth.mockResolvedValueOnce(mockQueueHealths[2]);
+      mockQueueHealthService.getQueueHealth.mockResolvedValueOnce(
+        mockQueueHealths[0]
+      );
+      mockQueueHealthService.getQueueHealth.mockResolvedValueOnce(
+        mockQueueHealths[1]
+      );
+      mockQueueHealthService.getQueueHealth.mockResolvedValueOnce(
+        mockQueueHealths[2]
+      );
       mockNotificationsQueue.add.mockResolvedValue({ id: 'test-job-id' });
 
       await cronService.performHealthCheck();
@@ -356,12 +408,16 @@ describe('CRON Job Execution Integration', () => {
       };
 
       mockQueueHealthService.getQueueHealth.mockResolvedValue(mockQueueHealth);
-      mockQueueService.addFetchParisDataJob.mockResolvedValue({ id: 'test-job-id' });
+      mockQueueService.addFetchParisDataJob.mockResolvedValue({
+        id: 'test-job-id',
+      });
 
       await cronService.scheduleParisFetch();
 
       const stats = await cronService.getCronJobStats();
-      const parisFetchStats = stats.find(stat => stat.jobName === 'fetch-paris-data');
+      const parisFetchStats = stats.find(
+        stat => stat.jobName === 'fetch-paris-data'
+      );
 
       expect(parisFetchStats).toBeDefined();
       expect(parisFetchStats?.executionCount).toBeGreaterThan(0);
@@ -387,7 +443,9 @@ describe('CRON Job Execution Integration', () => {
       };
 
       mockQueueHealthService.getQueueHealth.mockResolvedValue(mockQueueHealth);
-      mockQueueService.addFetchParisDataJob.mockResolvedValue({ id: 'test-job-id' });
+      mockQueueService.addFetchParisDataJob.mockResolvedValue({
+        id: 'test-job-id',
+      });
 
       await cronService.executeJobManually('fetch-paris-data');
 
@@ -395,7 +453,9 @@ describe('CRON Job Execution Integration', () => {
     });
 
     it('should throw error for unknown job', async () => {
-      await expect(cronService.executeJobManually('unknown-job')).rejects.toThrow('Unknown job: unknown-job');
+      await expect(
+        cronService.executeJobManually('unknown-job')
+      ).rejects.toThrow('Unknown job: unknown-job');
     });
   });
-}); 
+});

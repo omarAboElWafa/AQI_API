@@ -1,4 +1,12 @@
-import { IsString, IsBoolean, IsOptional, IsEnum, IsNumber, IsDateString, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsBoolean,
+  IsOptional,
+  IsEnum,
+  IsNumber,
+  IsDateString,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -19,7 +27,9 @@ export class ExecuteCronJobDto {
   @Type(() => Object)
   parameters?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: 'Force execution even if conditions not met' })
+  @ApiPropertyOptional({
+    description: 'Force execution even if conditions not met',
+  })
   @IsOptional()
   @IsBoolean()
   force?: boolean;
@@ -46,16 +56,16 @@ export class CronJobConfigDto {
   @IsString()
   description: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Job category',
-    enum: ['data', 'analytics', 'maintenance', 'monitoring']
+    enum: ['data', 'analytics', 'maintenance', 'monitoring'],
   })
   @IsEnum(['data', 'analytics', 'maintenance', 'monitoring'])
   category: 'data' | 'analytics' | 'maintenance' | 'monitoring';
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Job priority',
-    enum: ['low', 'normal', 'high', 'critical']
+    enum: ['low', 'normal', 'high', 'critical'],
   })
   @IsEnum(['low', 'normal', 'high', 'critical'])
   priority: 'low' | 'normal' | 'high' | 'critical';
@@ -65,10 +75,18 @@ export class CronJobStatsDto {
   @ApiProperty({ description: 'Job name' })
   jobName: string;
 
-  @ApiProperty({ description: 'Last execution timestamp', type: Date, nullable: true })
+  @ApiProperty({
+    description: 'Last execution timestamp',
+    type: Date,
+    nullable: true,
+  })
   lastExecution: Date | null;
 
-  @ApiProperty({ description: 'Next execution timestamp', type: Date, nullable: true })
+  @ApiProperty({
+    description: 'Next execution timestamp',
+    type: Date,
+    nullable: true,
+  })
   nextExecution: Date | null;
 
   @ApiProperty({ description: 'Total execution count' })
@@ -97,22 +115,30 @@ export class CircuitBreakerStateDto {
   @ApiProperty({ description: 'Current failure count' })
   failureCount: number;
 
-  @ApiProperty({ description: 'Last failure timestamp', type: Date, nullable: true })
+  @ApiProperty({
+    description: 'Last failure timestamp',
+    type: Date,
+    nullable: true,
+  })
   lastFailureTime: Date | null;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Circuit breaker state',
-    enum: ['CLOSED', 'OPEN', 'HALF_OPEN']
+    enum: ['CLOSED', 'OPEN', 'HALF_OPEN'],
   })
   state: 'CLOSED' | 'OPEN' | 'HALF_OPEN';
 
   @ApiProperty({ description: 'Failure threshold to open circuit' })
   threshold: number;
 
-  @ApiProperty({ description: 'Timeout before attempting to close circuit (ms)' })
+  @ApiProperty({
+    description: 'Timeout before attempting to close circuit (ms)',
+  })
   timeout: number;
 
-  @ApiProperty({ description: 'Time remaining until circuit can transition (ms)' })
+  @ApiProperty({
+    description: 'Time remaining until circuit can transition (ms)',
+  })
   timeToRecovery: number;
 }
 
@@ -153,7 +179,10 @@ export class QueueHealthMetricsDto {
   @ApiProperty({ description: 'Health issues', type: [String] })
   issues: string[];
 
-  @ApiProperty({ description: 'Queue status trend', enum: ['improving', 'stable', 'degrading'] })
+  @ApiProperty({
+    description: 'Queue status trend',
+    enum: ['improving', 'stable', 'degrading'],
+  })
   trend: 'improving' | 'stable' | 'degrading';
 }
 
@@ -161,17 +190,26 @@ export class QueueBottleneckDto {
   @ApiProperty({ description: 'Queue name' })
   queueName: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Bottleneck severity',
-    enum: ['low', 'medium', 'high', 'critical']
+    enum: ['low', 'medium', 'high', 'critical'],
   })
   severity: 'low' | 'medium' | 'high' | 'critical';
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Bottleneck type',
-    enum: ['high_wait_time', 'high_failure_rate', 'slow_processing', 'queue_backlog']
+    enum: [
+      'high_wait_time',
+      'high_failure_rate',
+      'slow_processing',
+      'queue_backlog',
+    ],
   })
-  type: 'high_wait_time' | 'high_failure_rate' | 'slow_processing' | 'queue_backlog';
+  type:
+    | 'high_wait_time'
+    | 'high_failure_rate'
+    | 'slow_processing'
+    | 'queue_backlog';
 
   @ApiProperty({ description: 'Bottleneck description' })
   description: string;
@@ -184,10 +222,16 @@ export class QueueBottleneckDto {
     processingTime: number;
   };
 
-  @ApiProperty({ description: 'Recommendations to resolve bottleneck', type: [String] })
+  @ApiProperty({
+    description: 'Recommendations to resolve bottleneck',
+    type: [String],
+  })
   recommendations: string[];
 
-  @ApiProperty({ description: 'Estimated impact level', enum: ['low', 'medium', 'high'] })
+  @ApiProperty({
+    description: 'Estimated impact level',
+    enum: ['low', 'medium', 'high'],
+  })
   impact: 'low' | 'medium' | 'high';
 }
 
@@ -195,18 +239,24 @@ export class SystemOverviewDto {
   @ApiProperty({ description: 'CRON job statistics', type: [CronJobStatsDto] })
   cronJobs: CronJobStatsDto[];
 
-  @ApiProperty({ description: 'Queue health metrics', type: [QueueHealthMetricsDto] })
+  @ApiProperty({
+    description: 'Queue health metrics',
+    type: [QueueHealthMetricsDto],
+  })
   queueHealth: QueueHealthMetricsDto[];
 
   @ApiProperty({ description: 'Circuit breaker state' })
   circuitBreaker: CircuitBreakerStateDto;
 
-  @ApiProperty({ description: 'Detected bottlenecks', type: [QueueBottleneckDto] })
+  @ApiProperty({
+    description: 'Detected bottlenecks',
+    type: [QueueBottleneckDto],
+  })
   bottlenecks: QueueBottleneckDto[];
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Overall system health',
-    enum: ['healthy', 'warning', 'critical']
+    enum: ['healthy', 'warning', 'critical'],
   })
   systemHealth: 'healthy' | 'warning' | 'critical';
 
@@ -226,9 +276,9 @@ export class SystemOverviewDto {
 }
 
 export class PerformanceTrendsDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Performance trend',
-    enum: ['improving', 'degrading', 'stable']
+    enum: ['improving', 'degrading', 'stable'],
   })
   trend: 'improving' | 'degrading' | 'stable';
 
@@ -244,7 +294,11 @@ export class PerformanceTrendsDto {
   @ApiProperty({ description: 'Trend analysis period (hours)' })
   analysisPeriod: number;
 
-  @ApiProperty({ description: 'Confidence level (0-1)', minimum: 0, maximum: 1 })
+  @ApiProperty({
+    description: 'Confidence level (0-1)',
+    minimum: 0,
+    maximum: 1,
+  })
   confidence: number;
 }
 
@@ -258,9 +312,9 @@ export class ScheduleJobDto {
   @Type(() => Object)
   data: Record<string, any>;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Job priority',
-    enum: ['low', 'normal', 'high', 'urgent', 'critical']
+    enum: ['low', 'normal', 'high', 'urgent', 'critical'],
   })
   @IsEnum(['low', 'normal', 'high', 'urgent', 'critical'])
   priority: 'low' | 'normal' | 'high' | 'urgent' | 'critical';
@@ -313,4 +367,4 @@ export class JobExecutionResultDto {
 
   @ApiProperty({ description: 'Job metadata' })
   metadata: Record<string, any>;
-} 
+}

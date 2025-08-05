@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { IQAirApiResponse, IQAirApiError } from '@/common/interfaces/iqair-api.interface';
+import {
+  IQAirApiResponse,
+  IQAirApiError,
+} from '@/common/interfaces/iqair-api.interface';
 
 export interface StandardizedAirQualityData {
   location: string;
@@ -44,10 +47,14 @@ export class IQAirApiService {
 
   constructor(private configService: ConfigService) {
     this.apiKey = this.configService.get<string>('iqair.apiKey');
-    this.baseUrl = this.configService.get<string>('iqair.baseUrl') || 'http://api.airvisual.com/v2';
-    
+    this.baseUrl =
+      this.configService.get<string>('iqair.baseUrl') ||
+      'http://api.airvisual.com/v2';
+
     if (!this.apiKey) {
-      this.logger.error('IQAir API key not configured. Please set IQAIR_API_KEY environment variable.');
+      this.logger.error(
+        'IQAir API key not configured. Please set IQAIR_API_KEY environment variable.'
+      );
       throw new Error('IQAir API key is required');
     }
 
@@ -56,17 +63,17 @@ export class IQAirApiService {
       timeout: this.timeout,
       headers: {
         'User-Agent': 'AQI-Monitor/1.0.0',
-        'Accept': 'application/json',
+        Accept: 'application/json',
       },
     });
 
     // Add request interceptor for logging
     this.axiosInstance.interceptors.request.use(
-      (config) => {
+      config => {
         this.logger.debug(`Making API request to: ${config.url}`);
         return config;
       },
-      (error) => {
+      error => {
         this.logger.error('Request interceptor error:', error);
         return Promise.reject(error);
       }
@@ -74,12 +81,16 @@ export class IQAirApiService {
 
     // Add response interceptor for logging
     this.axiosInstance.interceptors.response.use(
-      (response) => {
-        this.logger.debug(`API response received with status: ${response.status}`);
+      response => {
+        this.logger.debug(
+          `API response received with status: ${response.status}`
+        );
         return response;
       },
-      (error) => {
-        this.logger.error(`API response error: ${error.response?.status} - ${error.message}`);
+      error => {
+        this.logger.error(
+          `API response error: ${error.response?.status} - ${error.message}`
+        );
         return Promise.reject(error);
       }
     );
@@ -95,27 +106,42 @@ export class IQAirApiService {
   /**
    * Fetch air quality data for any city with exponential retry logic
    */
-  async fetchCityAirQuality(city: string, state: string, country: string): Promise<ApiCallResult> {
+  async fetchCityAirQuality(
+    city: string,
+    state: string,
+    country: string
+  ): Promise<ApiCallResult> {
     return this.fetchAirQualityWithRetry(city, state, country);
   }
 
   /**
    * Fetch air quality data for nearest city by coordinates
    */
-  async fetchNearestCityAirQuality(latitude: number, longitude: number): Promise<ApiCallResult> {
+  async fetchNearestCityAirQuality(
+    latitude: number,
+    longitude: number
+  ): Promise<ApiCallResult> {
     const startTime = Date.now();
-    
+
     try {
-      this.logger.log(`Fetching air quality data for nearest city at coordinates: ${latitude}, ${longitude}`);
-      
+      this.logger.log(
+        `Fetching air quality data for nearest city at coordinates: ${latitude}, ${longitude}`
+      );
+
       const response = await this.makeNearestCityApiCall(latitude, longitude);
       const responseTime = Date.now() - startTime;
-      
+
       if (response.data.status === 'success') {
-        const standardizedData = this.standardizeNearestCityResponse(response.data, responseTime, 0);
-        
-        this.logger.log(`Successfully fetched nearest city air quality data in ${responseTime}ms`);
-        
+        const standardizedData = this.standardizeNearestCityResponse(
+          response.data,
+          responseTime,
+          0
+        );
+
+        this.logger.log(
+          `Successfully fetched nearest city air quality data in ${responseTime}ms`
+        );
+
         return {
           success: true,
           data: standardizedData,
@@ -123,14 +149,15 @@ export class IQAirApiService {
           retryCount: 0,
         };
       } else {
-        throw new Error(`API returned non-success status: ${response.data.status}`);
+        throw new Error(
+          `API returned non-success status: ${response.data.status}`
+        );
       }
-
     } catch (error) {
       const responseTime = Date.now() - startTime;
-      
+
       this.logger.error(`Nearest city API call failed:`, error.message);
-      
+
       return {
         success: false,
         error: error.message,
@@ -150,18 +177,26 @@ export class IQAirApiService {
     attempt: number = 0
   ): Promise<ApiCallResult> {
     const startTime = Date.now();
-    
+
     try {
-      this.logger.log(`Fetching air quality data for ${city}, ${state}, ${country} (attempt ${attempt + 1}/${this.maxRetries + 1})`);
-      
+      this.logger.log(
+        `Fetching air quality data for ${city}, ${state}, ${country} (attempt ${attempt + 1}/${this.maxRetries + 1})`
+      );
+
       const response = await this.makeApiCall(city, state, country);
       const responseTime = Date.now() - startTime;
-      
+
       if (response.data.status === 'success') {
-        const standardizedData = this.standardizeApiResponse(response.data, responseTime, attempt);
-        
-        this.logger.log(`Successfully fetched air quality data for ${city} in ${responseTime}ms`);
-        
+        const standardizedData = this.standardizeApiResponse(
+          response.data,
+          responseTime,
+          attempt
+        );
+
+        this.logger.log(
+          `Successfully fetched air quality data for ${city} in ${responseTime}ms`
+        );
+
         return {
           success: true,
           data: standardizedData,
@@ -169,27 +204,35 @@ export class IQAirApiService {
           retryCount: attempt,
         };
       } else {
-        throw new Error(`API returned non-success status: ${response.data.status}`);
+        throw new Error(
+          `API returned non-success status: ${response.data.status}`
+        );
       }
-
     } catch (error) {
       const responseTime = Date.now() - startTime;
-      
-      this.logger.error(`API call failed for ${city} (attempt ${attempt + 1}):`, error.message);
-      
+
+      this.logger.error(
+        `API call failed for ${city} (attempt ${attempt + 1}):`,
+        error.message
+      );
+
       // Check if we should retry
       if (attempt < this.maxRetries && this.shouldRetry(error)) {
         const delay = this.calculateRetryDelay(attempt);
-        
-        this.logger.warn(`Retrying in ${delay}ms (attempt ${attempt + 2}/${this.maxRetries + 1})`);
-        
+
+        this.logger.warn(
+          `Retrying in ${delay}ms (attempt ${attempt + 2}/${this.maxRetries + 1})`
+        );
+
         await this.sleep(delay);
         return this.fetchAirQualityWithRetry(city, state, country, attempt + 1);
       }
-      
+
       // Max retries reached or non-retryable error
-      this.logger.error(`Failed to fetch air quality data for ${city} after ${attempt + 1} attempts`);
-      
+      this.logger.error(
+        `Failed to fetch air quality data for ${city} after ${attempt + 1} attempts`
+      );
+
       return {
         success: false,
         error: error.message,
@@ -202,7 +245,11 @@ export class IQAirApiService {
   /**
    * Make the actual API call
    */
-  private async makeApiCall(city: string, state: string, country: string): Promise<AxiosResponse<IQAirApiResponse>> {
+  private async makeApiCall(
+    city: string,
+    state: string,
+    country: string
+  ): Promise<AxiosResponse<IQAirApiResponse>> {
     const params = {
       city,
       state,
@@ -216,7 +263,10 @@ export class IQAirApiService {
   /**
    * Make the actual nearest city API call
    */
-  private async makeNearestCityApiCall(latitude: number, longitude: number): Promise<AxiosResponse<IQAirApiResponse>> {
+  private async makeNearestCityApiCall(
+    latitude: number,
+    longitude: number
+  ): Promise<AxiosResponse<IQAirApiResponse>> {
     const params = {
       lat: latitude,
       lon: longitude,
@@ -235,7 +285,7 @@ export class IQAirApiService {
     retryCount: number
   ): StandardizedAirQualityData {
     const { data } = apiResponse;
-    
+
     return {
       location: `${data.city}, ${data.state}, ${data.country}`,
       coordinates: {
@@ -267,7 +317,7 @@ export class IQAirApiService {
     retryCount: number
   ): StandardizedAirQualityData {
     const { data } = apiResponse;
-    
+
     return {
       location: `${data.city}, ${data.state}, ${data.country}`,
       coordinates: {
@@ -295,7 +345,11 @@ export class IQAirApiService {
    */
   private shouldRetry(error: any): boolean {
     // Retry on network errors, timeout, and certain HTTP status codes
-    if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND') {
+    if (
+      error.code === 'ECONNRESET' ||
+      error.code === 'ETIMEDOUT' ||
+      error.code === 'ENOTFOUND'
+    ) {
       return true;
     }
 
@@ -314,10 +368,10 @@ export class IQAirApiService {
   private calculateRetryDelay(attempt: number): number {
     // Exponential backoff: 30s, 60s, 120s, 240s, 480s
     const delay = this.baseDelay * Math.pow(2, attempt);
-    
+
     // Add jitter to prevent thundering herd
     const jitter = Math.random() * 0.1 * delay; // ±10% jitter
-    
+
     return Math.floor(delay + jitter);
   }
 
@@ -396,4 +450,4 @@ export class IQAirApiService {
       resetTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
     };
   }
-} 
+}

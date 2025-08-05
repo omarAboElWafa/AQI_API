@@ -10,7 +10,13 @@ import {
   HttpStatus,
   HttpCode,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiQuery,
+  ApiParam,
+} from '@nestjs/swagger';
 
 import { QueueService, JobPriority } from '../services/queue.service';
 import { QueueHealthService } from '../services/queue-health.service';
@@ -20,7 +26,7 @@ import { QueueHealthService } from '../services/queue-health.service';
 export class QueueController {
   constructor(
     private readonly queueService: QueueService,
-    private readonly queueHealthService: QueueHealthService,
+    private readonly queueHealthService: QueueHealthService
   ) {}
 
   @Get('stats')
@@ -40,19 +46,22 @@ export class QueueController {
     description: 'Queue health status retrieved successfully',
   })
   async getQueueHealth() {
-    return await this.queueHealthService.getOverallHealth();
+    return await this.queueHealthService.getAllQueueHealth();
   }
 
   @Get('health/:queueName')
   @ApiOperation({ summary: 'Get specific queue health status' })
-  @ApiParam({ name: 'queueName', description: 'Queue name', example: 'air-quality' })
+  @ApiParam({
+    name: 'queueName',
+    description: 'Queue name',
+    example: 'air-quality',
+  })
   @ApiResponse({
     status: 200,
     description: 'Specific queue health status retrieved successfully',
   })
   async getSpecificQueueHealth(@Param('queueName') queueName: string) {
-    const queue = this.getQueueByName(queueName);
-    return await this.queueHealthService.getQueueHealth(queueName, queue);
+    return await this.queueHealthService.getQueueHealth(queueName);
   }
 
   @Post('jobs/fetch-paris-data')
@@ -63,7 +72,8 @@ export class QueueController {
     description: 'Job added successfully',
   })
   async addFetchParisDataJob(
-    @Body() body: {
+    @Body()
+    body: {
       priority?: JobPriority;
       delay?: number;
     } = {}
@@ -88,11 +98,7 @@ export class QueueController {
     description: 'Job added successfully',
   })
   async addCalculateDailyStatsJob(
-    @Body() body: {
-      location: string;
-      date: string;
-      priority?: JobPriority;
-    }
+    @Body() body: { location: string; date: string; priority?: JobPriority }
   ) {
     const job = await this.queueService.addCalculateDailyStatsJob(
       body.location,
@@ -116,7 +122,8 @@ export class QueueController {
     description: 'Job added successfully',
   })
   async addSendAlertEmailJob(
-    @Body() body: {
+    @Body()
+    body: {
       city: string;
       aqi: number;
       level: string;
@@ -151,7 +158,7 @@ export class QueueController {
   })
   async scheduleParisDataFetching() {
     await this.queueService.scheduleParisDataFetching();
-    
+
     return {
       message: 'Paris data fetching scheduled to run every minute',
     };
@@ -166,7 +173,7 @@ export class QueueController {
   })
   async scheduleDailyStatsCalculation() {
     await this.queueService.scheduleDailyStatsCalculation();
-    
+
     return {
       message: 'Daily stats calculation scheduled to run daily at 1 AM',
     };
@@ -174,8 +181,17 @@ export class QueueController {
 
   @Get('failed/:queueName')
   @ApiOperation({ summary: 'Get failed jobs' })
-  @ApiParam({ name: 'queueName', description: 'Queue name', example: 'air-quality' })
-  @ApiQuery({ name: 'limit', description: 'Number of jobs to return', example: 10, required: false })
+  @ApiParam({
+    name: 'queueName',
+    description: 'Queue name',
+    example: 'air-quality',
+  })
+  @ApiQuery({
+    name: 'limit',
+    description: 'Number of jobs to return',
+    example: 10,
+    required: false,
+  })
   @ApiResponse({
     status: 200,
     description: 'Failed jobs retrieved successfully',
@@ -185,7 +201,7 @@ export class QueueController {
     @Query('limit') limit?: number
   ) {
     const jobs = await this.queueService.getFailedJobs(queueName, limit || 10);
-    
+
     return {
       queueName,
       failedJobs: jobs.map(job => ({
@@ -202,7 +218,11 @@ export class QueueController {
   @Post('retry/:queueName/:jobId')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Retry failed job' })
-  @ApiParam({ name: 'queueName', description: 'Queue name', example: 'air-quality' })
+  @ApiParam({
+    name: 'queueName',
+    description: 'Queue name',
+    example: 'air-quality',
+  })
   @ApiParam({ name: 'jobId', description: 'Job ID', example: '123' })
   @ApiResponse({
     status: 202,
@@ -213,7 +233,7 @@ export class QueueController {
     @Param('jobId') jobId: string
   ) {
     await this.queueService.retryFailedJob(queueName, jobId);
-    
+
     return {
       message: 'Job retry initiated',
       queueName,
@@ -223,14 +243,18 @@ export class QueueController {
 
   @Put('pause/:queueName')
   @ApiOperation({ summary: 'Pause queue' })
-  @ApiParam({ name: 'queueName', description: 'Queue name', example: 'air-quality' })
+  @ApiParam({
+    name: 'queueName',
+    description: 'Queue name',
+    example: 'air-quality',
+  })
   @ApiResponse({
     status: 200,
     description: 'Queue paused successfully',
   })
   async pauseQueue(@Param('queueName') queueName: string) {
     await this.queueService.pauseQueue(queueName);
-    
+
     return {
       message: 'Queue paused',
       queueName,
@@ -239,14 +263,18 @@ export class QueueController {
 
   @Put('resume/:queueName')
   @ApiOperation({ summary: 'Resume queue' })
-  @ApiParam({ name: 'queueName', description: 'Queue name', example: 'air-quality' })
+  @ApiParam({
+    name: 'queueName',
+    description: 'Queue name',
+    example: 'air-quality',
+  })
   @ApiResponse({
     status: 200,
     description: 'Queue resumed successfully',
   })
   async resumeQueue(@Param('queueName') queueName: string) {
     await this.queueService.resumeQueue(queueName);
-    
+
     return {
       message: 'Queue resumed',
       queueName,
@@ -255,8 +283,17 @@ export class QueueController {
 
   @Delete('clean/:queueName')
   @ApiOperation({ summary: 'Clean completed jobs' })
-  @ApiParam({ name: 'queueName', description: 'Queue name', example: 'air-quality' })
-  @ApiQuery({ name: 'olderThan', description: 'Clean jobs older than (milliseconds)', example: 86400000, required: false })
+  @ApiParam({
+    name: 'queueName',
+    description: 'Queue name',
+    example: 'air-quality',
+  })
+  @ApiQuery({
+    name: 'olderThan',
+    description: 'Clean jobs older than (milliseconds)',
+    example: 86400000,
+    required: false,
+  })
   @ApiResponse({
     status: 200,
     description: 'Jobs cleaned successfully',
@@ -269,7 +306,7 @@ export class QueueController {
       queueName,
       olderThan || 24 * 60 * 60 * 1000 // 24 hours default
     );
-    
+
     return {
       message: 'Completed jobs cleaned',
       queueName,
@@ -285,7 +322,7 @@ export class QueueController {
   })
   async getActiveJobs() {
     const activeJobs = await this.queueService.getActiveJobs();
-    
+
     return {
       activeJobs: activeJobs.map(({ queueName, jobs }) => ({
         queueName,
@@ -303,7 +340,11 @@ export class QueueController {
 
   @Get('jobs/:queueName/:jobId')
   @ApiOperation({ summary: 'Get job details' })
-  @ApiParam({ name: 'queueName', description: 'Queue name', example: 'air-quality' })
+  @ApiParam({
+    name: 'queueName',
+    description: 'Queue name',
+    example: 'air-quality',
+  })
   @ApiParam({ name: 'jobId', description: 'Job ID', example: '123' })
   @ApiResponse({
     status: 200,
@@ -314,7 +355,7 @@ export class QueueController {
     @Param('jobId') jobId: string
   ) {
     const job = await this.queueService.getJobDetails(queueName, jobId);
-    
+
     if (!job) {
       return {
         message: 'Job not found',
@@ -340,7 +381,11 @@ export class QueueController {
 
   @Delete('jobs/:queueName/:jobId')
   @ApiOperation({ summary: 'Remove job' })
-  @ApiParam({ name: 'queueName', description: 'Queue name', example: 'air-quality' })
+  @ApiParam({
+    name: 'queueName',
+    description: 'Queue name',
+    example: 'air-quality',
+  })
   @ApiParam({ name: 'jobId', description: 'Job ID', example: '123' })
   @ApiResponse({
     status: 200,
@@ -351,7 +396,7 @@ export class QueueController {
     @Param('jobId') jobId: string
   ) {
     await this.queueService.removeJob(queueName, jobId);
-    
+
     return {
       message: 'Job removed',
       queueName,
@@ -361,13 +406,17 @@ export class QueueController {
 
   @Get('metrics/:queueName')
   @ApiOperation({ summary: 'Get detailed job metrics' })
-  @ApiParam({ name: 'queueName', description: 'Queue name', example: 'air-quality' })
+  @ApiParam({
+    name: 'queueName',
+    description: 'Queue name',
+    example: 'air-quality',
+  })
   @ApiResponse({
     status: 200,
     description: 'Job metrics retrieved successfully',
   })
   async getJobMetrics(@Param('queueName') queueName: string) {
-    return await this.queueHealthService.getJobMetrics(queueName);
+    return await this.queueHealthService.getProcessingStats(queueName);
   }
 
   @Get('connection-status')
@@ -377,7 +426,7 @@ export class QueueController {
     description: 'Connection status retrieved successfully',
   })
   async getConnectionStatus() {
-    return await this.queueHealthService.getQueueConnectionStatus();
+    return await this.queueHealthService.getAllQueueHealth();
   }
 
   /**
@@ -395,4 +444,4 @@ export class QueueController {
         throw new Error(`Queue ${queueName} not found`);
     }
   }
-} 
+}
