@@ -100,6 +100,47 @@ export class IQAirApiService {
   }
 
   /**
+   * Fetch air quality data for nearest city by coordinates
+   */
+  async fetchNearestCityAirQuality(latitude: number, longitude: number): Promise<ApiCallResult> {
+    const startTime = Date.now();
+    
+    try {
+      this.logger.log(`Fetching air quality data for nearest city at coordinates: ${latitude}, ${longitude}`);
+      
+      const response = await this.makeNearestCityApiCall(latitude, longitude);
+      const responseTime = Date.now() - startTime;
+      
+      if (response.data.status === 'success') {
+        const standardizedData = this.standardizeNearestCityResponse(response.data, responseTime, 0);
+        
+        this.logger.log(`Successfully fetched nearest city air quality data in ${responseTime}ms`);
+        
+        return {
+          success: true,
+          data: standardizedData,
+          responseTime,
+          retryCount: 0,
+        };
+      } else {
+        throw new Error(`API returned non-success status: ${response.data.status}`);
+      }
+
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      
+      this.logger.error(`Nearest city API call failed:`, error.message);
+      
+      return {
+        success: false,
+        error: error.message,
+        responseTime,
+        retryCount: 0,
+      };
+    }
+  }
+
+  /**
    * Fetch air quality data with exponential retry logic
    */
   private async fetchAirQualityWithRetry(
@@ -173,9 +214,54 @@ export class IQAirApiService {
   }
 
   /**
+   * Make the actual nearest city API call
+   */
+  private async makeNearestCityApiCall(latitude: number, longitude: number): Promise<AxiosResponse<IQAirApiResponse>> {
+    const params = {
+      lat: latitude,
+      lon: longitude,
+      key: this.apiKey,
+    };
+
+    return await this.axiosInstance.get('/nearest_city', { params });
+  }
+
+  /**
    * Standardize the API response into our internal format
    */
   private standardizeApiResponse(
+    apiResponse: IQAirApiResponse,
+    responseTime: number,
+    retryCount: number
+  ): StandardizedAirQualityData {
+    const { data } = apiResponse;
+    
+    return {
+      location: `${data.city}, ${data.state}, ${data.country}`,
+      coordinates: {
+        latitude: data.location.coordinates[1],
+        longitude: data.location.coordinates[0],
+      },
+      timestamp: new Date(),
+      aqi: data.current.pollution.aqius,
+      main_pollutant: data.current.pollution.mainus,
+      pollution_level: this.getAirQualityLevel(data.current.pollution.aqius),
+      weather: {
+        temperature: data.current.weather.tp,
+        humidity: data.current.weather.hu,
+      },
+      metadata: {
+        api_response_time: responseTime,
+        cached: false,
+        retry_count: retryCount,
+      },
+    };
+  }
+
+  /**
+   * Standardize the nearest city API response into our internal format
+   */
+  private standardizeNearestCityResponse(
     apiResponse: IQAirApiResponse,
     responseTime: number,
     retryCount: number

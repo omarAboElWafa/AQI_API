@@ -1,7 +1,32 @@
-import { Controller, Get, Post, Param, Query, Body, Logger } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { 
+  Controller, 
+  Get, 
+  Post, 
+  Param, 
+  Query, 
+  Body, 
+  Logger,
+  HttpStatus,
+  HttpCode,
+  UseInterceptors,
+  CacheInterceptor,
+  CacheTTL,
+  BadRequestException,
+  NotFoundException,
+  InternalServerErrorException,
+  UsePipes,
+  ValidationPipe,
+  Headers,
+} from '@nestjs/common';
+import { Inject, CACHE_MANAGER } from '@nestjs/common';
+import { Cache } from 'cache-manager';
 
 import { AnalyticsService } from '../services/analytics.service';
+import { 
+  StandardizedApiResponse,
+  ApiResponseMetadata,
+  GetDailyStatsDto
+} from '@/common/dto/air-quality.dto';
 import { DailyStats, HourlyStats, HistoricalTrend, PollutionPattern, MostPollutedTime } from '../services/analytics.service';
 
 export class AnalyticsQueryDto {
@@ -12,216 +37,350 @@ export class AnalyticsQueryDto {
   period?: 'weekly' | 'monthly';
 }
 
-@ApiTags('analytics')
-@Controller('analytics')
+@Controller('api/analytics')
+@UseInterceptors(CacheInterceptor)
 export class AnalyticsController {
   private readonly logger = new Logger(AnalyticsController.name);
 
-  constructor(private readonly analyticsService: AnalyticsService) {}
+  constructor(
+    private readonly analyticsService: AnalyticsService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+  ) {}
 
+  /**
+   * GET /api/analytics/daily-summary?date=2024-08-05
+   * Get daily summary for Paris (default) or specified location
+   */
+  @Get('daily-summary')
+  @CacheTTL(3600) // 1 hour cache
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async getDailySummary(
+    @Query() query: GetDailyStatsDto & { city?: string; country?: string },
+  ): Promise<StandardizedApiResponse<DailyStats>> {
+    try {
+      const city = query.city || 'Paris';
+      const country = query.country || 'France';
+      
+      this.logger.log(`Fetching daily summary for ${city}, ${country} on ${query.date}`);
+      
+      const cacheKey = `daily-summary-${city}-${country}-${query.date}`;
+      const cached = await this.cacheManager.get<DailyStats>(cacheKey);
+      
+      if (cached) {
+        return this.createStandardResponse(cached, true, 0);
+      }
+
+      const dailyStats = await this.analyticsService.calculateDailyStats(query.date, city, country);
+      
+      if (!dailyStats) {
+        throw new NotFoundException(`No data found for ${city}, ${country} on ${query.date}`);
+      }
+
+      // Cache for 1 hour (longer for historical dates)
+      const cacheTtl = this.isHistoricalDate(query.date) ? 86400 : 3600;
+      await this.cacheManager.set(cacheKey, dailyStats, cacheTtl);
+      
+      return this.createStandardResponse(dailyStats, false, 60);
+
+    } catch (error) {
+      this.logger.error('Error fetching daily summary:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to retrieve daily summary');
+    }
+  }
+
+  /**
+   * GET /api/analytics/hourly-averages?date=2024-08-05
+   * Get hourly averages for Paris (default) or specified location
+   */
+  @Get('hourly-averages')
+  @CacheTTL(1800) // 30 minutes cache
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async getHourlyAverages(
+    @Query() query: GetDailyStatsDto & { city?: string; country?: string },
+  ): Promise<StandardizedApiResponse<HourlyStats[]>> {
+    try {
+      const city = query.city || 'Paris';
+      const country = query.country || 'France';
+      
+      this.logger.log(`Fetching hourly averages for ${city}, ${country} on ${query.date}`);
+      
+      const cacheKey = `hourly-averages-${city}-${country}-${query.date}`;
+      const cached = await this.cacheManager.get<HourlyStats[]>(cacheKey);
+      
+      if (cached) {
+        return this.createStandardResponse(cached, true, 0);
+      }
+
+      const hourlyStats = await this.analyticsService.getHourlyStats(query.date, city, country);
+      
+      if (!hourlyStats || hourlyStats.length === 0) {
+        throw new NotFoundException(`No hourly data found for ${city}, ${country} on ${query.date}`);
+      }
+
+      // Cache for 30 minutes (longer for historical dates)
+      const cacheTtl = this.isHistoricalDate(query.date) ? 43200 : 1800; // 12h for historical, 30m for recent
+      await this.cacheManager.set(cacheKey, hourlyStats, cacheTtl);
+      
+      return this.createStandardResponse(hourlyStats, false, 30);
+
+    } catch (error) {
+      this.logger.error('Error fetching hourly averages:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to retrieve hourly averages');
+    }
+  }
+
+  /**
+   * GET /api/analytics/paris/daily-summary?date=2024-08-05
+   * Dedicated Paris endpoint for convenience
+   */
+  @Get('paris/daily-summary')
+  @CacheTTL(3600)
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async getParisDailySummary(
+    @Query() query: GetDailyStatsDto,
+  ): Promise<StandardizedApiResponse<DailyStats>> {
+    try {
+      this.logger.log(`Fetching Paris daily summary for ${query.date}`);
+      
+      const cacheKey = `paris-daily-summary-${query.date}`;
+      const cached = await this.cacheManager.get<DailyStats>(cacheKey);
+      
+      if (cached) {
+        return this.createStandardResponse(cached, true, 0);
+      }
+
+      const dailyStats = await this.analyticsService.calculateDailyStats(query.date, 'Paris', 'France');
+      
+      if (!dailyStats) {
+        throw new NotFoundException(`No data found for Paris on ${query.date}`);
+      }
+
+      // Cache for 1 hour (longer for historical dates)
+      const cacheTtl = this.isHistoricalDate(query.date) ? 86400 : 3600;
+      await this.cacheManager.set(cacheKey, dailyStats, cacheTtl);
+      
+      return this.createStandardResponse(dailyStats, false, 60);
+
+    } catch (error) {
+      this.logger.error('Error fetching Paris daily summary:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to retrieve Paris daily summary');
+    }
+  }
+
+  /**
+   * GET /api/analytics/paris/hourly-averages?date=2024-08-05
+   * Dedicated Paris endpoint for convenience
+   */
+  @Get('paris/hourly-averages')
+  @CacheTTL(1800)
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async getParisHourlyAverages(
+    @Query() query: GetDailyStatsDto,
+  ): Promise<StandardizedApiResponse<HourlyStats[]>> {
+    try {
+      this.logger.log(`Fetching Paris hourly averages for ${query.date}`);
+      
+      const cacheKey = `paris-hourly-averages-${query.date}`;
+      const cached = await this.cacheManager.get<HourlyStats[]>(cacheKey);
+      
+      if (cached) {
+        return this.createStandardResponse(cached, true, 0);
+      }
+
+      const hourlyStats = await this.analyticsService.getHourlyStats(query.date, 'Paris', 'France');
+      
+      if (!hourlyStats || hourlyStats.length === 0) {
+        throw new NotFoundException(`No hourly data found for Paris on ${query.date}`);
+      }
+
+      // Cache for 30 minutes (longer for historical dates)
+      const cacheTtl = this.isHistoricalDate(query.date) ? 43200 : 1800;
+      await this.cacheManager.set(cacheKey, hourlyStats, cacheTtl);
+      
+      return this.createStandardResponse(hourlyStats, false, 30);
+
+    } catch (error) {
+      this.logger.error('Error fetching Paris hourly averages:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to retrieve Paris hourly averages');
+    }
+  }
+
+  /**
+   * GET /api/analytics/trends - Historical trends analysis
+   */
+  @Get('trends')
+  @CacheTTL(7200) // 2 hours cache
+  @HttpCode(HttpStatus.OK)
+  async getHistoricalTrends(
+    @Query('city') city: string = 'Paris',
+    @Query('country') country: string = 'France',
+    @Query('days') days: number = 30,
+  ): Promise<StandardizedApiResponse<HistoricalTrend[]>> {
+    try {
+      this.logger.log(`Fetching historical trends for ${city}, ${country} over ${days} days`);
+      
+      const cacheKey = `trends-${city}-${country}-${days}`;
+      const cached = await this.cacheManager.get<HistoricalTrend[]>(cacheKey);
+      
+      if (cached) {
+        return this.createStandardResponse(cached, true, 0);
+      }
+
+      const trends = await this.analyticsService.getHistoricalTrends(city, country, days);
+      
+      if (!trends || trends.length === 0) {
+        throw new NotFoundException(`No trend data found for ${city}, ${country}`);
+      }
+
+      // Cache for 2 hours
+      await this.cacheManager.set(cacheKey, trends, 7200);
+      
+      return this.createStandardResponse(trends, false, 120);
+
+    } catch (error) {
+      this.logger.error('Error fetching historical trends:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to retrieve historical trends');
+    }
+  }
+
+  /**
+   * GET /api/analytics/pollution-patterns - Pollution pattern analysis
+   */
+  @Get('pollution-patterns')
+  @CacheTTL(3600)
+  @HttpCode(HttpStatus.OK)
+  async getPollutionPatterns(
+    @Query('city') city: string = 'Paris',
+    @Query('country') country: string = 'France',
+    @Query('period') period: 'weekly' | 'monthly' = 'weekly',
+  ): Promise<StandardizedApiResponse<PollutionPattern[]>> {
+    try {
+      this.logger.log(`Fetching pollution patterns for ${city}, ${country} (${period})`);
+      
+      const cacheKey = `patterns-${city}-${country}-${period}`;
+      const cached = await this.cacheManager.get<PollutionPattern[]>(cacheKey);
+      
+      if (cached) {
+        return this.createStandardResponse(cached, true, 0);
+      }
+
+      const patterns = await this.analyticsService.getPollutionPatterns(city, country, period);
+      
+      if (!patterns || patterns.length === 0) {
+        throw new NotFoundException(`No pattern data found for ${city}, ${country}`);
+      }
+
+      // Cache for 1 hour
+      await this.cacheManager.set(cacheKey, patterns, 3600);
+      
+      return this.createStandardResponse(patterns, false, 60);
+
+    } catch (error) {
+      this.logger.error('Error fetching pollution patterns:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to retrieve pollution patterns');
+    }
+  }
+
+  /**
+   * Legacy endpoints for backward compatibility
+   */
   @Get('daily-stats/:city/:country')
-  @ApiOperation({ summary: 'Get daily statistics for a specific city and country' })
-  @ApiParam({ name: 'city', description: 'City name' })
-  @ApiParam({ name: 'country', description: 'Country name' })
-  @ApiQuery({ name: 'date', required: false, description: 'Date in YYYY-MM-DD format (defaults to today)' })
-  @ApiResponse({ status: 200, description: 'Daily statistics retrieved successfully' })
-  async getDailyStats(
+  @CacheTTL(3600)
+  @HttpCode(HttpStatus.OK)
+  async getDailyStatsLegacy(
     @Param('city') city: string,
     @Param('country') country: string,
     @Query('date') date?: string,
-  ): Promise<DailyStats> {
-    this.logger.log(`Fetching daily stats for ${city}, ${country} on ${date || 'today'}`);
-    
+  ): Promise<StandardizedApiResponse<DailyStats>> {
     const targetDate = date || new Date().toISOString().split('T')[0];
-    return this.analyticsService.calculateDailyStats(targetDate, city, country);
-  }
-
-  @Get('current-day/:city/:country')
-  @ApiOperation({ summary: 'Get current day statistics with real-time updates' })
-  @ApiParam({ name: 'city', description: 'City name' })
-  @ApiParam({ name: 'country', description: 'Country name' })
-  @ApiResponse({ status: 200, description: 'Current day statistics retrieved successfully' })
-  async getCurrentDayStats(
-    @Param('city') city: string,
-    @Param('country') country: string,
-  ): Promise<DailyStats> {
-    this.logger.log(`Fetching current day stats for ${city}, ${country}`);
-    return this.analyticsService.updateCurrentDayStats(city, country);
+    this.logger.log(`Legacy endpoint: Fetching daily stats for ${city}, ${country} on ${targetDate}`);
+    
+    try {
+      const dailyStats = await this.analyticsService.calculateDailyStats(targetDate, city, country);
+      return this.createStandardResponse(dailyStats, false, 0);
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to retrieve daily statistics');
+    }
   }
 
   @Get('hourly-stats/:city/:country')
-  @ApiOperation({ summary: 'Get hourly statistics for a specific date' })
-  @ApiParam({ name: 'city', description: 'City name' })
-  @ApiParam({ name: 'country', description: 'Country name' })
-  @ApiQuery({ name: 'date', required: false, description: 'Date in YYYY-MM-DD format (defaults to today)' })
-  @ApiResponse({ status: 200, description: 'Hourly statistics retrieved successfully' })
-  async getHourlyStats(
+  @CacheTTL(1800)
+  @HttpCode(HttpStatus.OK)
+  async getHourlyStatsLegacy(
     @Param('city') city: string,
     @Param('country') country: string,
     @Query('date') date?: string,
-  ): Promise<HourlyStats[]> {
-    this.logger.log(`Fetching hourly stats for ${city}, ${country} on ${date || 'today'}`);
-    
+  ): Promise<StandardizedApiResponse<HourlyStats[]>> {
     const targetDate = date || new Date().toISOString().split('T')[0];
-    return this.analyticsService.getHourlyStats(targetDate, city, country);
+    this.logger.log(`Legacy endpoint: Fetching hourly stats for ${city}, ${country} on ${targetDate}`);
+    
+    try {
+      const hourlyStats = await this.analyticsService.getHourlyStats(targetDate, city, country);
+      return this.createStandardResponse(hourlyStats, false, 0);
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to retrieve hourly statistics');
+    }
   }
 
-  @Get('most-polluted-time/:city/:country')
-  @ApiOperation({ summary: 'Get the most polluted time period' })
-  @ApiParam({ name: 'city', description: 'City name' })
-  @ApiParam({ name: 'country', description: 'Country name' })
-  @ApiQuery({ name: 'days', required: false, description: 'Number of days to analyze (default: 7)' })
-  @ApiResponse({ status: 200, description: 'Most polluted time retrieved successfully' })
-  async getMostPollutedTime(
-    @Param('city') city: string,
-    @Param('country') country: string,
-    @Query('days') days?: number,
-  ): Promise<MostPollutedTime> {
-    this.logger.log(`Fetching most polluted time for ${city}, ${country} over ${days || 7} days`);
-    return this.analyticsService.getMostPollutedTime(city, country, days || 7);
-  }
-
-  @Get('historical-trends/:city/:country')
-  @ApiOperation({ summary: 'Get historical trends for multiple days' })
-  @ApiParam({ name: 'city', description: 'City name' })
-  @ApiParam({ name: 'country', description: 'Country name' })
-  @ApiQuery({ name: 'days', required: false, description: 'Number of days to analyze (default: 30)' })
-  @ApiResponse({ status: 200, description: 'Historical trends retrieved successfully' })
-  async getHistoricalTrends(
-    @Param('city') city: string,
-    @Param('country') country: string,
-    @Query('days') days?: number,
-  ): Promise<HistoricalTrend[]> {
-    this.logger.log(`Fetching historical trends for ${city}, ${country} over ${days || 30} days`);
-    return this.analyticsService.getHistoricalTrends(city, country, days || 30);
-  }
-
-  @Get('pollution-patterns/:city/:country')
-  @ApiOperation({ summary: 'Get pollution patterns (weekly/monthly analysis)' })
-  @ApiParam({ name: 'city', description: 'City name' })
-  @ApiParam({ name: 'country', description: 'Country name' })
-  @ApiQuery({ name: 'period', required: false, description: 'Analysis period: weekly or monthly (default: weekly)' })
-  @ApiResponse({ status: 200, description: 'Pollution patterns retrieved successfully' })
-  async getPollutionPatterns(
-    @Param('city') city: string,
-    @Param('country') country: string,
-    @Query('period') period?: 'weekly' | 'monthly',
-  ): Promise<PollutionPattern[]> {
-    this.logger.log(`Fetching pollution patterns for ${city}, ${country} (${period || 'weekly'})`);
-    return this.analyticsService.getPollutionPatterns(city, country, period || 'weekly');
-  }
-
-  @Get('comprehensive-report/:city/:country')
-  @ApiOperation({ summary: 'Get comprehensive analytics report' })
-  @ApiParam({ name: 'city', description: 'City name' })
-  @ApiParam({ name: 'country', description: 'Country name' })
-  @ApiQuery({ name: 'days', required: false, description: 'Number of days to analyze (default: 7)' })
-  @ApiResponse({ status: 200, description: 'Comprehensive report retrieved successfully' })
-  async getComprehensiveReport(
-    @Param('city') city: string,
-    @Param('country') country: string,
-    @Query('days') days?: number,
-  ): Promise<{
-    dailyStats: DailyStats;
-    mostPollutedTime: MostPollutedTime;
-    historicalTrends: HistoricalTrend[];
-    pollutionPatterns: PollutionPattern[];
-    summary: {
-      averageAQI: number;
-      trend: 'improving' | 'worsening' | 'stable';
-      dominantPollutant: string;
-      unhealthyDays: number;
-      totalDays: number;
-    };
-  }> {
-    this.logger.log(`Generating comprehensive report for ${city}, ${country} over ${days || 7} days`);
-    return this.analyticsService.generateComprehensiveReport(city, country, days || 7);
-  }
-
-  @Get('top-cities')
-  @ApiOperation({ summary: 'Get top cities by average AQI' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Number of cities to return (default: 10)' })
-  @ApiResponse({ status: 200, description: 'Top cities retrieved successfully' })
-  async getTopCitiesByAQI(
-    @Query('limit') limit?: number,
-  ): Promise<Array<{ city: string; country: string; averageAQI: number }>> {
-    this.logger.log(`Fetching top ${limit || 10} cities by AQI`);
-    return this.analyticsService.getTopCitiesByAQI(limit || 10);
-  }
-
-  @Get('daily-report/:city/:country')
-  @ApiOperation({ summary: 'Get daily report (legacy endpoint)' })
-  @ApiParam({ name: 'city', description: 'City name' })
-  @ApiParam({ name: 'country', description: 'Country name' })
-  @ApiResponse({ status: 200, description: 'Daily report retrieved successfully' })
-  async getDailyReport(
-    @Param('city') city: string,
-    @Param('country') country: string,
-  ): Promise<{
-    city: string;
-    country: string;
-    period: string;
-    averageAQI: number;
-    maxAQI: number;
-    minAQI: number;
-    unhealthyDays: number;
-    totalDays: number;
-    trend: 'improving' | 'worsening' | 'stable';
-  }> {
-    this.logger.log(`Fetching daily report for ${city}, ${country}`);
-    return this.analyticsService.generateDailyReport(city, country);
-  }
-
-  @Get('weekly-report/:city/:country')
-  @ApiOperation({ summary: 'Get weekly report (legacy endpoint)' })
-  @ApiParam({ name: 'city', description: 'City name' })
-  @ApiParam({ name: 'country', description: 'Country name' })
-  @ApiResponse({ status: 200, description: 'Weekly report retrieved successfully' })
-  async getWeeklyReport(
-    @Param('city') city: string,
-    @Param('country') country: string,
-  ): Promise<{
-    city: string;
-    country: string;
-    period: string;
-    averageAQI: number;
-    maxAQI: number;
-    minAQI: number;
-    unhealthyDays: number;
-    totalDays: number;
-    trend: 'improving' | 'worsening' | 'stable';
-  }> {
-    this.logger.log(`Fetching weekly report for ${city}, ${country}`);
-    return this.analyticsService.generateWeeklyReport(city, country);
-  }
-
-  @Post('cache/invalidate/:city/:country')
-  @ApiOperation({ summary: 'Invalidate cache for specific city and country' })
-  @ApiParam({ name: 'city', description: 'City name' })
-  @ApiParam({ name: 'country', description: 'Country name' })
-  @ApiQuery({ name: 'date', required: false, description: 'Specific date to invalidate (optional)' })
-  @ApiResponse({ status: 200, description: 'Cache invalidated successfully' })
+  /**
+   * Administrative endpoints
+   */
+  @Post('cache/invalidate')
+  @HttpCode(HttpStatus.OK)
   async invalidateCache(
-    @Param('city') city: string,
-    @Param('country') country: string,
-    @Query('date') date?: string,
-  ): Promise<{ message: string; city: string; country: string; date?: string }> {
-    this.logger.log(`Invalidating cache for ${city}, ${country}${date ? ` on ${date}` : ''}`);
-    
-    await this.analyticsService.invalidateCache(city, country, date);
-    
-    return {
-      message: 'Cache invalidated successfully',
-      city,
-      country,
-      date,
-    };
+    @Body() body: { city?: string; country?: string; date?: string },
+    @Headers('x-api-key') apiKey?: string,
+  ): Promise<StandardizedApiResponse<{ message: string }>> {
+    try {
+      // Basic API key validation
+      const adminApiKey = 'admin-api-key'; // This should come from config
+      if (apiKey !== adminApiKey) {
+        throw new BadRequestException('Invalid API key for admin operations');
+      }
+
+      const city = body.city || 'Paris';
+      const country = body.country || 'France';
+      
+      await this.analyticsService.invalidateCache(city, country, body.date);
+      
+      const message = `Cache invalidated for ${city}, ${country}${body.date ? ` on ${body.date}` : ''}`;
+      this.logger.log(message);
+      
+      return this.createStandardResponse({ message }, false, 0);
+    } catch (error) {
+      this.logger.error('Error invalidating cache:', error);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to invalidate cache');
+    }
   }
 
   @Get('health')
-  @ApiOperation({ summary: 'Get analytics service health status' })
-  @ApiResponse({ status: 200, description: 'Analytics service health status' })
-  async getHealth(): Promise<{
+  @HttpCode(HttpStatus.OK)
+  async getHealth(): Promise<StandardizedApiResponse<{
     status: 'healthy' | 'degraded' | 'unhealthy';
     timestamp: Date;
     version: string;
@@ -232,20 +391,56 @@ export class AnalyticsController {
       pollutionPatterns: boolean;
       caching: boolean;
     };
-  }> {
-    this.logger.log('Checking analytics service health');
-    
-    return {
-      status: 'healthy',
-      timestamp: new Date(),
+  }>> {
+    try {
+      this.logger.log('Checking analytics service health');
+      
+      const healthData = {
+        status: 'healthy' as const,
+        timestamp: new Date(),
+        version: '1.0.0',
+        features: {
+          dailyStats: true,
+          hourlyStats: true,
+          historicalTrends: true,
+          pollutionPatterns: true,
+          caching: true,
+        },
+      };
+
+      return this.createStandardResponse(healthData, false, 0);
+    } catch (error) {
+      this.logger.error('Error checking health:', error);
+      throw new InternalServerErrorException('Health check failed');
+    }
+  }
+
+  // Helper methods
+  private createStandardResponse<T>(
+    data: T, 
+    cached: boolean, 
+    dataFreshness: number,
+    cacheTtl?: number
+  ): StandardizedApiResponse<T> {
+    const metadata: ApiResponseMetadata = {
+      cached,
+      dataFreshness,
+      responseTime: new Date(),
       version: '1.0.0',
-      features: {
-        dailyStats: true,
-        hourlyStats: true,
-        historicalTrends: true,
-        pollutionPatterns: true,
-        caching: true,
-      },
+      cacheTtl,
     };
+
+    return {
+      success: true,
+      data,
+      metadata,
+    };
+  }
+
+  private isHistoricalDate(dateString: string): boolean {
+    const targetDate = new Date(dateString);
+    const today = new Date();
+    const diffInDays = (today.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24);
+    return diffInDays > 1;
   }
 } 
