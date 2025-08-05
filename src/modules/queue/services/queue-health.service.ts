@@ -1,442 +1,423 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue, Job } from 'bull';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { Inject } from '@nestjs/common';
 
-export interface QueueHealth {
-  name: string;
-  status: 'healthy' | 'degraded' | 'unhealthy';
-  stats: {
-    waiting: number;
-    active: number;
-    completed: number;
-    failed: number;
-    delayed: number;
-    paused: boolean;
-  };
-  performance: {
-    avgProcessingTime: number;
-    throughput: number; // jobs per minute
-    failureRate: number; // percentage
-  };
-  lastJobCompleted?: Date;
-  lastJobFailed?: Date;
+export interface QueueHealthMetrics {
+  queueName: string;
+  healthScore: number; // 0-1 scale
+  totalJobs: number;
+  waitingJobs: number;
+  activeJobs: number;
+  completedJobs: number;
+  failedJobs: number;
+  averageProcessingTime: number;
+  processingRate: number; // jobs per minute
+  failureRate: number; // 0-1 scale
+  lastUpdated: Date;
   issues: string[];
 }
 
-export interface OverallHealth {
-  status: 'healthy' | 'degraded' | 'unhealthy';
-  queues: QueueHealth[];
-  summary: {
-    totalWaiting: number;
-    totalActive: number;
-    totalFailed: number;
-    overallThroughput: number;
-    overallFailureRate: number;
+export interface QueueBottleneck {
+  queueName: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  type: 'high_wait_time' | 'high_failure_rate' | 'slow_processing' | 'queue_backlog';
+  description: string;
+  metrics: {
+    waitingJobs: number;
+    averageWaitTime: number;
+    failureRate: number;
+    processingTime: number;
   };
-  timestamp: Date;
+  recommendations: string[];
 }
 
 @Injectable()
 export class QueueHealthService {
   private readonly logger = new Logger(QueueHealthService.name);
-  private readonly healthThresholds = {
-    maxWaitingJobs: 100,
-    maxActiveJobs: 50,
-    maxFailureRate: 10, // percentage
-    minThroughput: 1, // jobs per minute
-    maxProcessingTime: 60000, // 1 minute in ms
-  };
+  private readonly healthMetrics = new Map<string, QueueHealthMetrics>();
+  private readonly processingTimeHistory = new Map<string, number[]>();
 
   constructor(
     @InjectQueue('air-quality') private airQualityQueue: Queue,
-    @InjectQueue('notifications') private notificationsQueue: Queue,
     @InjectQueue('analytics') private analyticsQueue: Queue,
-  ) {}
+    @InjectQueue('notifications') private notificationsQueue: Queue,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+  ) {
+    this.initializeHealthMonitoring();
+  }
 
   /**
-   * Get health status for all queues
+   * Get health metrics for a specific queue
    */
-  async getOverallHealth(): Promise<OverallHealth> {
+  async getQueueHealth(queueName: string): Promise<QueueHealthMetrics> {
+    const queue = this.getQueueByName(queueName);
+    if (!queue) {
+      throw new Error(`Queue ${queueName} not found`);
+    }
+
+    return this.calculateQueueHealth(queue, queueName);
+  }
+
+  /**
+   * Get health metrics for all queues
+   */
+  async getAllQueueHealth(): Promise<QueueHealthMetrics[]> {
     const queues = [
       { name: 'air-quality', queue: this.airQualityQueue },
-      { name: 'notifications', queue: this.notificationsQueue },
       { name: 'analytics', queue: this.analyticsQueue },
+      { name: 'notifications', queue: this.notificationsQueue },
     ];
 
-    const queueHealths: QueueHealth[] = [];
-    let totalWaiting = 0;
-    let totalActive = 0;
-    let totalFailed = 0;
-    let totalThroughput = 0;
-    let totalFailureRate = 0;
+    const healthMetrics = await Promise.all(
+      queues.map(({ name, queue }) => this.calculateQueueHealth(queue, name))
+    );
 
-    for (const { name, queue } of queues) {
-      const queueHealth = await this.getQueueHealth(name, queue);
-      queueHealths.push(queueHealth);
-
-      totalWaiting += queueHealth.stats.waiting;
-      totalActive += queueHealth.stats.active;
-      totalFailed += queueHealth.stats.failed;
-      totalThroughput += queueHealth.performance.throughput;
-      totalFailureRate += queueHealth.performance.failureRate;
-    }
-
-    const overallStatus = this.determineOverallStatus(queueHealths);
-    const avgFailureRate = totalFailureRate / queues.length;
-
-    return {
-      status: overallStatus,
-      queues: queueHealths,
-      summary: {
-        totalWaiting,
-        totalActive,
-        totalFailed,
-        overallThroughput: totalThroughput,
-        overallFailureRate: avgFailureRate,
-      },
-      timestamp: new Date(),
-    };
+    return healthMetrics;
   }
 
   /**
-   * Get health status for a specific queue
+   * Detect queue bottlenecks
    */
-  async getQueueHealth(name: string, queue: Queue): Promise<QueueHealth> {
-    try {
-      // Get basic stats
-      const [waiting, active, completed, failed, delayed] = await Promise.all([
-        queue.getWaiting(),
-        queue.getActive(),
-        queue.getCompleted(),
-        queue.getFailed(),
-        queue.getDelayed(),
-      ]);
+  async detectBottlenecks(): Promise<QueueBottleneck[]> {
+    const allHealth = await this.getAllQueueHealth();
+    const bottlenecks: QueueBottleneck[] = [];
 
-      const stats = {
-        waiting: waiting.length,
-        active: active.length,
-        completed: completed.length,
-        failed: failed.length,
-        delayed: delayed.length,
-        paused: await queue.isPaused(),
-      };
-
-      // Calculate performance metrics
-      const performance = await this.calculatePerformanceMetrics(queue, completed, failed);
-
-      // Determine health status and issues
-      const issues: string[] = [];
-      const status = this.determineQueueStatus(stats, performance, issues);
-
-      // Get last job timestamps
-      const lastJobCompleted = completed.length > 0 ? new Date(completed[0].processedOn || 0) : undefined;
-      const lastJobFailed = failed.length > 0 ? new Date(failed[0].failedReason || 0) : undefined;
-
-      return {
-        name,
-        status,
-        stats,
-        performance,
-        lastJobCompleted,
-        lastJobFailed,
-        issues,
-      };
-
-    } catch (error) {
-      this.logger.error(`Error getting health for queue ${name}:`, error);
-      
-      return {
-        name,
-        status: 'unhealthy',
-        stats: {
-          waiting: 0,
-          active: 0,
-          completed: 0,
-          failed: 0,
-          delayed: 0,
-          paused: false,
-        },
-        performance: {
-          avgProcessingTime: 0,
-          throughput: 0,
-          failureRate: 100,
-        },
-        issues: [`Error accessing queue: ${error.message}`],
-      };
+    for (const health of allHealth) {
+      const queueBottlenecks = this.analyzeQueueBottlenecks(health);
+      bottlenecks.push(...queueBottlenecks);
     }
+
+    return bottlenecks.sort((a, b) => {
+      const severityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
+      return severityOrder[b.severity] - severityOrder[a.severity];
+    });
   }
 
   /**
-   * Calculate performance metrics
+   * Get queue processing statistics
    */
-  private async calculatePerformanceMetrics(
-    queue: Queue,
-    completed: Job[],
-    failed: Job[]
-  ): Promise<{
-    avgProcessingTime: number;
+  async getProcessingStats(queueName: string, timeWindow: number = 3600000): Promise<{
+    averageProcessingTime: number;
+    processingRate: number;
     throughput: number;
     failureRate: number;
-  }> {
-    // Calculate average processing time from recent completed jobs
-    const recentCompleted = completed.slice(0, 10); // Last 10 jobs
-    const avgProcessingTime = recentCompleted.length > 0
-      ? recentCompleted.reduce((sum, job) => {
-          const duration = (job.processedOn || 0) - (job.timestamp || 0);
-          return sum + duration;
-        }, 0) / recentCompleted.length
-      : 0;
-
-    // Calculate throughput (jobs per minute) from last hour
-    const oneHourAgo = Date.now() - (60 * 60 * 1000);
-    const recentJobs = completed.filter(job => (job.processedOn || 0) > oneHourAgo);
-    const throughput = recentJobs.length; // jobs in last hour
-
-    // Calculate failure rate from recent jobs
-    const totalRecentJobs = recentCompleted.length + failed.slice(0, 10).length;
-    const failureRate = totalRecentJobs > 0
-      ? (failed.slice(0, 10).length / totalRecentJobs) * 100
-      : 0;
-
-    return {
-      avgProcessingTime,
-      throughput,
-      failureRate,
-    };
-  }
-
-  /**
-   * Determine queue health status
-   */
-  private determineQueueStatus(
-    stats: any,
-    performance: any,
-    issues: string[]
-  ): 'healthy' | 'degraded' | 'unhealthy' {
-    let degradedCount = 0;
-    let unhealthyCount = 0;
-
-    // Check waiting jobs
-    if (stats.waiting > this.healthThresholds.maxWaitingJobs) {
-      issues.push(`Too many waiting jobs: ${stats.waiting}`);
-      if (stats.waiting > this.healthThresholds.maxWaitingJobs * 2) {
-        unhealthyCount++;
-      } else {
-        degradedCount++;
-      }
-    }
-
-    // Check active jobs
-    if (stats.active > this.healthThresholds.maxActiveJobs) {
-      issues.push(`Too many active jobs: ${stats.active}`);
-      degradedCount++;
-    }
-
-    // Check failure rate
-    if (performance.failureRate > this.healthThresholds.maxFailureRate) {
-      issues.push(`High failure rate: ${performance.failureRate.toFixed(2)}%`);
-      if (performance.failureRate > this.healthThresholds.maxFailureRate * 2) {
-        unhealthyCount++;
-      } else {
-        degradedCount++;
-      }
-    }
-
-    // Check throughput
-    if (performance.throughput < this.healthThresholds.minThroughput) {
-      issues.push(`Low throughput: ${performance.throughput} jobs/hour`);
-      degradedCount++;
-    }
-
-    // Check processing time
-    if (performance.avgProcessingTime > this.healthThresholds.maxProcessingTime) {
-      issues.push(`Slow processing: ${(performance.avgProcessingTime / 1000).toFixed(2)}s avg`);
-      degradedCount++;
-    }
-
-    // Check if paused
-    if (stats.paused) {
-      issues.push('Queue is paused');
-      unhealthyCount++;
-    }
-
-    // Determine overall status
-    if (unhealthyCount > 0) {
-      return 'unhealthy';
-    } else if (degradedCount > 0) {
-      return 'degraded';
-    } else {
-      return 'healthy';
-    }
-  }
-
-  /**
-   * Determine overall system health status
-   */
-  private determineOverallStatus(queueHealths: QueueHealth[]): 'healthy' | 'degraded' | 'unhealthy' {
-    const unhealthyQueues = queueHealths.filter(q => q.status === 'unhealthy').length;
-    const degradedQueues = queueHealths.filter(q => q.status === 'degraded').length;
-
-    if (unhealthyQueues > 0) {
-      return 'unhealthy';
-    } else if (degradedQueues > 0) {
-      return 'degraded';
-    } else {
-      return 'healthy';
-    }
-  }
-
-  /**
-   * Check if queue is responsive
-   */
-  async isQueueResponsive(queueName: string): Promise<boolean> {
-    try {
-      const queue = this.getQueueByName(queueName);
-      if (!queue) {
-        return false;
-      }
-
-      // Simple responsiveness test - try to get waiting jobs
-      const waiting = await Promise.race([
-        queue.getWaiting(),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout')), 5000)
-        ),
-      ]);
-
-      return true;
-    } catch (error) {
-      this.logger.error(`Queue ${queueName} is not responsive:`, error.message);
-      return false;
-    }
-  }
-
-  /**
-   * Get queue connection status
-   */
-  async getQueueConnectionStatus(): Promise<{
-    [queueName: string]: boolean;
-  }> {
-    const queues = [
-      { name: 'air-quality', queue: this.airQualityQueue },
-      { name: 'notifications', queue: this.notificationsQueue },
-      { name: 'analytics', queue: this.analyticsQueue },
-    ];
-
-    const status: { [queueName: string]: boolean } = {};
-
-    for (const { name, queue } of queues) {
-      try {
-        // Test Redis connection by getting queue status
-        await queue.isPaused();
-        status[name] = true;
-      } catch (error) {
-        this.logger.error(`Queue ${name} connection failed:`, error.message);
-        status[name] = false;
-      }
-    }
-
-    return status;
-  }
-
-  /**
-   * Get detailed job metrics
-   */
-  async getJobMetrics(queueName: string): Promise<{
-    totalJobs: number;
-    successRate: number;
-    avgProcessingTime: number;
-    jobsPerHour: number;
-    oldestWaitingJob?: Date;
-    longestRunningJob?: { id: string; duration: number };
   }> {
     const queue = this.getQueueByName(queueName);
     if (!queue) {
       throw new Error(`Queue ${queueName} not found`);
     }
 
-    const [waiting, active, completed, failed] = await Promise.all([
-      queue.getWaiting(),
-      queue.getActive(),
-      queue.getCompleted(),
-      queue.getFailed(),
+    const now = Date.now();
+    const windowStart = now - timeWindow;
+
+    // Get completed and failed jobs within time window
+    const [completedJobs, failedJobs] = await Promise.all([
+      queue.getCompleted(0, -1),
+      queue.getFailed(0, -1),
     ]);
 
-    const totalJobs = completed.length + failed.length;
-    const successRate = totalJobs > 0 ? (completed.length / totalJobs) * 100 : 0;
+    // Filter jobs by time window
+    const recentCompleted = completedJobs.filter(job => 
+      job.finishedOn && job.finishedOn >= windowStart
+    );
+    const recentFailed = failedJobs.filter(job => 
+      job.finishedOn && job.finishedOn >= windowStart
+    );
 
-    // Calculate average processing time
-    const avgProcessingTime = completed.length > 0
-      ? completed.reduce((sum, job) => {
-          const duration = (job.processedOn || 0) - (job.timestamp || 0);
-          return sum + duration;
-        }, 0) / completed.length
+    // Calculate metrics
+    const totalProcessed = recentCompleted.length + recentFailed.length;
+    const processingTimes = recentCompleted
+      .filter(job => job.processedOn && job.finishedOn)
+      .map(job => job.finishedOn! - job.processedOn!);
+
+    const averageProcessingTime = processingTimes.length > 0
+      ? processingTimes.reduce((sum, time) => sum + time, 0) / processingTimes.length
       : 0;
 
-    // Calculate jobs per hour from last 24 hours
-    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-    const recentJobs = completed.filter(job => (job.processedOn || 0) > oneDayAgo);
-    const jobsPerHour = recentJobs.length / 24;
+    const processingRate = totalProcessed > 0
+      ? (totalProcessed / (timeWindow / 60000)) // jobs per minute
+      : 0;
 
-    // Find oldest waiting job
-    const oldestWaitingJob = waiting.length > 0
-      ? new Date(Math.min(...waiting.map(job => job.timestamp || Date.now())))
-      : undefined;
-
-    // Find longest running job
-    const longestRunningJob = active.length > 0
-      ? active.reduce((longest, job) => {
-          const duration = Date.now() - (job.processedOn || job.timestamp || Date.now());
-          return duration > (longest?.duration || 0)
-            ? { id: job.id?.toString() || 'unknown', duration }
-            : longest;
-        }, undefined)
-      : undefined;
+    const throughput = recentCompleted.length;
+    const failureRate = totalProcessed > 0 ? recentFailed.length / totalProcessed : 0;
 
     return {
-      totalJobs,
-      successRate,
-      avgProcessingTime,
-      jobsPerHour,
-      oldestWaitingJob,
-      longestRunningJob,
+      averageProcessingTime,
+      processingRate,
+      throughput,
+      failureRate,
     };
   }
 
   /**
-   * Get queue by name
+   * Monitor queue and alert on issues
    */
+  async monitorAndAlert(): Promise<void> {
+    try {
+      const bottlenecks = await this.detectBottlenecks();
+      const criticalBottlenecks = bottlenecks.filter(b => b.severity === 'critical' || b.severity === 'high');
+
+      if (criticalBottlenecks.length > 0) {
+        this.logger.warn(`Detected ${criticalBottlenecks.length} critical queue bottlenecks`);
+        
+        // Cache alert information
+        await this.cacheManager.set(
+          'queue-health-alerts',
+          criticalBottlenecks,
+          300 // 5 minutes
+        );
+
+        // Log each critical bottleneck
+        for (const bottleneck of criticalBottlenecks) {
+          this.logger.warn(`Queue ${bottleneck.queueName}: ${bottleneck.description}`, {
+            severity: bottleneck.severity,
+            type: bottleneck.type,
+            recommendations: bottleneck.recommendations,
+          });
+        }
+      }
+
+      // Update cached health metrics
+      const allHealth = await this.getAllQueueHealth();
+      await this.cacheManager.set('queue-health-metrics', allHealth, 60); // 1 minute
+
+    } catch (error) {
+      this.logger.error('Error during queue health monitoring:', error);
+    }
+  }
+
+  /**
+   * Get queue recommendations based on health
+   */
+  async getQueueRecommendations(queueName: string): Promise<string[]> {
+    const health = await this.getQueueHealth(queueName);
+    const recommendations: string[] = [];
+
+    if (health.healthScore < 0.5) {
+      recommendations.push('Queue health is critical - immediate attention required');
+    }
+
+    if (health.failureRate > 0.1) {
+      recommendations.push('High failure rate detected - check job processors and error handling');
+    }
+
+    if (health.waitingJobs > 100) {
+      recommendations.push('High queue backlog - consider scaling workers or optimizing job processing');
+    }
+
+    if (health.averageProcessingTime > 30000) { // 30 seconds
+      recommendations.push('Slow job processing detected - optimize job logic or increase resources');
+    }
+
+    if (health.processingRate < 10) { // Less than 10 jobs per minute
+      recommendations.push('Low throughput detected - review worker configuration and concurrency settings');
+    }
+
+    if (recommendations.length === 0) {
+      recommendations.push('Queue is performing well - no immediate action required');
+    }
+
+    return recommendations;
+  }
+
+  /**
+   * Get historical performance trends
+   */
+  async getPerformanceTrends(queueName: string): Promise<{
+    trend: 'improving' | 'degrading' | 'stable';
+    healthScoreChange: number;
+    processingTimeChange: number;
+    throughputChange: number;
+  }> {
+    const current = await this.getQueueHealth(queueName);
+    const cached = this.healthMetrics.get(queueName);
+
+    if (!cached) {
+      return {
+        trend: 'stable',
+        healthScoreChange: 0,
+        processingTimeChange: 0,
+        throughputChange: 0,
+      };
+    }
+
+    const healthScoreChange = current.healthScore - cached.healthScore;
+    const processingTimeChange = current.averageProcessingTime - cached.averageProcessingTime;
+    const throughputChange = current.processingRate - cached.processingRate;
+
+    let trend: 'improving' | 'degrading' | 'stable' = 'stable';
+    
+    if (healthScoreChange > 0.1 && throughputChange > 0) {
+      trend = 'improving';
+    } else if (healthScoreChange < -0.1 || processingTimeChange > 5000) {
+      trend = 'degrading';
+    }
+
+    return {
+      trend,
+      healthScoreChange,
+      processingTimeChange,
+      throughputChange,
+    };
+  }
+
+  private async calculateQueueHealth(queue: Queue, queueName: string): Promise<QueueHealthMetrics> {
+    const [waiting, active, completed, failed, delayed] = await Promise.all([
+      queue.getWaiting(),
+      queue.getActive(),
+      queue.getCompleted(),
+      queue.getFailed(),
+      queue.getDelayed(),
+    ]);
+
+    const totalJobs = waiting.length + active.length + completed.length + failed.length;
+    const stats = await this.getProcessingStats(queueName);
+    
+    // Calculate health score (0-1)
+    let healthScore = 1.0;
+    const issues: string[] = [];
+
+    // Penalize high failure rate
+    if (stats.failureRate > 0.05) { // > 5%
+      healthScore -= stats.failureRate * 0.5;
+      issues.push(`High failure rate: ${(stats.failureRate * 100).toFixed(1)}%`);
+    }
+
+    // Penalize slow processing
+    if (stats.averageProcessingTime > 10000) { // > 10 seconds
+      healthScore -= 0.2;
+      issues.push(`Slow processing: ${(stats.averageProcessingTime / 1000).toFixed(1)}s average`);
+    }
+
+    // Penalize high queue backlog
+    if (waiting.length > 50) {
+      healthScore -= Math.min(0.3, waiting.length / 1000);
+      issues.push(`High backlog: ${waiting.length} waiting jobs`);
+    }
+
+    // Penalize low throughput
+    if (stats.processingRate < 5) { // < 5 jobs per minute
+      healthScore -= 0.2;
+      issues.push(`Low throughput: ${stats.processingRate.toFixed(1)} jobs/min`);
+    }
+
+    healthScore = Math.max(0, Math.min(1, healthScore));
+
+    const metrics: QueueHealthMetrics = {
+      queueName,
+      healthScore,
+      totalJobs,
+      waitingJobs: waiting.length,
+      activeJobs: active.length,
+      completedJobs: completed.length,
+      failedJobs: failed.length,
+      averageProcessingTime: stats.averageProcessingTime,
+      processingRate: stats.processingRate,
+      failureRate: stats.failureRate,
+      lastUpdated: new Date(),
+      issues,
+    };
+
+    // Store for trend analysis
+    this.healthMetrics.set(queueName, metrics);
+
+    return metrics;
+  }
+
+  private analyzeQueueBottlenecks(health: QueueHealthMetrics): QueueBottleneck[] {
+    const bottlenecks: QueueBottleneck[] = [];
+
+    // High wait time bottleneck
+    if (health.waitingJobs > 100) {
+      bottlenecks.push({
+        queueName: health.queueName,
+        severity: health.waitingJobs > 500 ? 'critical' : health.waitingJobs > 200 ? 'high' : 'medium',
+        type: 'queue_backlog',
+        description: `Queue has ${health.waitingJobs} waiting jobs`,
+        metrics: {
+          waitingJobs: health.waitingJobs,
+          averageWaitTime: 0, // Would need additional tracking
+          failureRate: health.failureRate,
+          processingTime: health.averageProcessingTime,
+        },
+        recommendations: [
+          'Increase worker concurrency',
+          'Optimize job processing logic',
+          'Consider horizontal scaling',
+          'Review job priorities',
+        ],
+      });
+    }
+
+    // High failure rate bottleneck
+    if (health.failureRate > 0.1) {
+      bottlenecks.push({
+        queueName: health.queueName,
+        severity: health.failureRate > 0.25 ? 'critical' : health.failureRate > 0.15 ? 'high' : 'medium',
+        type: 'high_failure_rate',
+        description: `Queue has ${(health.failureRate * 100).toFixed(1)}% failure rate`,
+        metrics: {
+          waitingJobs: health.waitingJobs,
+          averageWaitTime: 0,
+          failureRate: health.failureRate,
+          processingTime: health.averageProcessingTime,
+        },
+        recommendations: [
+          'Review error logs and fix common failures',
+          'Improve error handling in job processors',
+          'Add retry logic with exponential backoff',
+          'Validate job data before processing',
+        ],
+      });
+    }
+
+    // Slow processing bottleneck
+    if (health.averageProcessingTime > 30000) { // 30 seconds
+      bottlenecks.push({
+        queueName: health.queueName,
+        severity: health.averageProcessingTime > 120000 ? 'critical' : health.averageProcessingTime > 60000 ? 'high' : 'medium',
+        type: 'slow_processing',
+        description: `Average job processing time is ${(health.averageProcessingTime / 1000).toFixed(1)} seconds`,
+        metrics: {
+          waitingJobs: health.waitingJobs,
+          averageWaitTime: 0,
+          failureRate: health.failureRate,
+          processingTime: health.averageProcessingTime,
+        },
+        recommendations: [
+          'Optimize job processing algorithms',
+          'Add database query optimization',
+          'Implement caching for repeated operations',
+          'Profile and identify performance bottlenecks',
+        ],
+      });
+    }
+
+    return bottlenecks;
+  }
+
   private getQueueByName(name: string): Queue | null {
     switch (name) {
       case 'air-quality':
         return this.airQualityQueue;
-      case 'notifications':
-        return this.notificationsQueue;
       case 'analytics':
         return this.analyticsQueue;
+      case 'notifications':
+        return this.notificationsQueue;
       default:
         return null;
     }
   }
 
-  /**
-   * Perform health check and log issues
-   */
-  async performHealthCheck(): Promise<void> {
-    const health = await this.getOverallHealth();
-    
-    if (health.status === 'unhealthy') {
-      this.logger.error('Queue system is unhealthy!', {
-        status: health.status,
-        issues: health.queues.flatMap(q => q.issues),
-      });
-    } else if (health.status === 'degraded') {
-      this.logger.warn('Queue system performance is degraded', {
-        status: health.status,
-        issues: health.queues.flatMap(q => q.issues),
-      });
-    } else {
-      this.logger.log('Queue system is healthy');
-    }
+  private initializeHealthMonitoring(): void {
+    // Set up periodic health monitoring
+    setInterval(async () => {
+      await this.monitorAndAlert();
+    }, 60000); // Every minute
+
+    this.logger.log('Queue health monitoring initialized');
   }
 } 

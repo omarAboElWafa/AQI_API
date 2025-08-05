@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { CacheModule } from '@nestjs/cache-manager';
 
 import { QueueService } from './services/queue.service';
 import { QueueHealthService } from './services/queue-health.service';
@@ -87,6 +88,7 @@ import { QueueController } from './controllers/queue.controller';
       }),
       inject: [ConfigService],
     }),
+    CacheModule.register(),
   ],
   controllers: [QueueController],
   providers: [QueueService, QueueHealthService],
